@@ -32,7 +32,7 @@ aws ecs deploy \
   --cluster $CLUSTER_NAME \
   --codedeploy-appspec ./app-spec.json \
   --codedeploy-application $CLUSTER_NAME-$APP_NAME \
-  --codedeploy-deployment-group $CLUSTER_NAME-$APP_NAME || ERROR=1 &
+  --codedeploy-deployment-group $CLUSTER_NAME-$APP_NAME &
 
 DEPLOYMENT_PID=$!
 
@@ -45,10 +45,12 @@ echo "---> For More Deployment info: https://$AWS_DEFAULT_REGION.console.aws.ama
 echo "---> Waiting for Deployment ..."
 
 wait $DEPLOYMENT_PID
+RET=$?
 
-#Fail the build if there was an error
-if [[ "$ERROR" == "1" ]]
-then 
-    exit -1
+if [ $RET -eq 0 ]; then
+  echo "---> Deployment completed!"
+else
+  echo "---> ERROR: Deployment FAILED!"
 fi
-echo "---> Deployment completed!"
+
+exit $RET
