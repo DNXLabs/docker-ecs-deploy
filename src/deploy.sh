@@ -28,7 +28,7 @@ echo "---> Creating deployment with CodeDeploy"
 
 # Update the ECS service to use the updated Task version
 aws ecs deploy \
-  --service $APP_NAME \
+  --service $CLIENT_NAME-$APP_NAME \
   --task-definition ./task-definition.json \
   --cluster $CLUSTER_NAME \
   --codedeploy-appspec ./app-spec.json \
@@ -40,6 +40,11 @@ DEPLOYMENT_PID=$!
 sleep 5 # Wait for deployment to be created so we can fetch DEPLOYMENT_ID next
 
 DEPLOYMENT_ID=$(aws deploy list-deployments --application-name=$CLUSTER_NAME-$CLIENT_NAME-$APP_NAME --deployment-group=$CLUSTER_NAME-$CLIENT_NAME-$APP_NAME --max-items=1 --query="deployments[0]" --output=text | head -n 1)
+
+echo $DEPLOYMENT_ID
+echo $CLIENT_NAME
+echo $CLUSTER_NAME
+echo $APP_NAME
 
 echo "---> For More Deployment info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
 
