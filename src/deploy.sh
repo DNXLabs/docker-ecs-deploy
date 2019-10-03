@@ -32,14 +32,14 @@ aws ecs deploy \
   --task-definition ./task-definition.json \
   --cluster $CLUSTER_NAME \
   --codedeploy-appspec ./app-spec.json \
-  --codedeploy-application $CLIENT_NAME-$APP_NAME \
-  --codedeploy-deployment-group $CLIENT_NAME-$APP_NAME &
+  --codedeploy-application $CLUSTER_NAME-$CLIENT_NAME-$APP_NAME \
+  --codedeploy-deployment-group $CLUSTER_NAME-$CLIENT_NAME-$APP_NAME &
 
 DEPLOYMENT_PID=$!
 
 sleep 5 # Wait for deployment to be created so we can fetch DEPLOYMENT_ID next
 
-DEPLOYMENT_ID=$(aws deploy list-deployments --application-name=$CLIENT_NAME-$APP_NAME --deployment-group=$CLIENT_NAME-$APP_NAME --max-items=1 --query="deployments[0]" --output=text | head -n 1)
+DEPLOYMENT_ID=$(aws deploy list-deployments --application-name=$CLUSTER_NAME-$CLIENT_NAME-$APP_NAME --deployment-group=$CLUSTER_NAME-$CLIENT_NAME-$APP_NAME --max-items=1 --query="deployments[0]" --output=text | head -n 1)
 
 echo "---> For More Deployment info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
 
