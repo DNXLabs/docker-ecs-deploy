@@ -1,4 +1,4 @@
-FROM dnxsolutions/aws:1.16.169-dnx1
+FROM dnxsolutions/aws:1.16.263-dnx1
 
 ADD src .
 
