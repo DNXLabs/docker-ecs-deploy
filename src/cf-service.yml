@@ -13,12 +13,9 @@ Parameters:
     Description: Name of the ECS cluster to use
     ConstraintDescription: Must be DNS friendly
     AllowedPattern: ^[a-zA-Z][a-zA-Z0-9\-]+$
-  Environment:
-    Description: Environment
+  Revision:
     Type: String
-    Default: Dev
-  Version:
-    Type: String
+    Default: latest
   HealthCheckPath:
     Description: Healthcheck Path used on TargetGroup
     Type: String
@@ -35,9 +32,10 @@ Parameters:
     Description: The approximate amount of time between health checks of an individual target (5-300 seconds).
     Type: Number
     Default: 10
-  TaskDefinitionArn:
-    Description: ARN of Task Definition revision to Deploy to this service
+  Image:
+    Description: Image for initial task definition placeholder
     Type: String
+    Default: dnxsolutions/nginx-hello:latest
   ContainerPort:
     Description: Port container listens
     Type: String
@@ -67,18 +65,26 @@ Parameters:
     Description: Min number of containers to autoscale
     Type: Number
     Default: 2
-  AlbScheme:
-    Description: Is the ALB internal or internet-facing?
-    Type: String
   HostedZoneName:
     Type: String
     Description: Hosted Zone name for domain record created for this app
+  Hostname:
+    Type: String
+  HostnameBlue:
+    Type: String
+  HostnameRedirects:
+    Type: String
+    Default: ""
+  CertificateArn:
+    Type: String
+  WafId:
+    Type: String
+    Default: ""
 
 Conditions:
-  isAutoscaling: !Equals [ !Ref Autoscaling, 'Enable']
-  isInternal: !Equals
-    - !Ref AlbScheme
-    - 'internal'
+  isAutoscaling: !Equals [ !Ref Autoscaling, 'Enable' ]
+  hasCloudfrontWaf: !Not [ !Equals [ !Ref WafId, '' ] ]
+  hasHostnameRedirects: !Not [ !Equals [ !Ref HostnameRedirects, '' ] ]
 
 Resources:
   AlbTargetGroup:
@@ -98,7 +104,6 @@ Resources:
       VpcId:
         Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-VpcId"
 
-
   ListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
@@ -109,20 +114,31 @@ Resources:
       Conditions:
         - Field: host-header
           Values:
-            - !Sub "${Name}-${Version}.*"
+            - !Sub "${Name}-${Revision}.*"
       ListenerArn: 
         Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbListenerHttpsArn"
       Priority: !Ref RulePriority
+
+  TaskDefinition: 
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      ContainerDefinitions: 
+        - Name: !Ref Name
+          Image: !Ref Image
+          PortMappings: 
+            - ContainerPort: !Ref ContainerPort
+          Memory: "128"
+          Essential: true
 
   EcsService:
     Type: AWS::ECS::Service
     DependsOn: ListenerRule
     Properties:
-      TaskDefinition: !Ref TaskDefinitionArn
+      TaskDefinition: !Ref TaskDefinition
       DesiredCount: 1
       PlacementStrategies:
         - Type: spread
-          Field:  attribute:ecs.availability-zone
+          Field: attribute:ecs.availability-zone
         - Type: binpack
           Field: memory
       HealthCheckGracePeriodSeconds: !Ref HealthCheckGracePeriod
@@ -139,6 +155,7 @@ Resources:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Condition: isAutoscaling
     Properties:
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService"
       MaxCapacity: !Ref AutoscalingMaxSize
       MinCapacity: !Ref AutoscalingMinSize
       ResourceId: !Sub
@@ -148,6 +165,7 @@ Resources:
           ServiceName: !GetAtt EcsService.Name
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
+
   ServiceScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Condition: isAutoscaling
@@ -160,11 +178,10 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
 
-  Route53Alb:
+  Route53Hostname:
     Type: AWS::Route53::RecordSet
-    Condition: isInternal
     Properties:
-      Name: !Sub "${Name}-${Version}.${HostedZoneName}"
+      Name: !Ref Hostname
       HostedZoneName: !Ref HostedZoneName
       Type: A
       AliasTarget:

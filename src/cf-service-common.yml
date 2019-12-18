@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: ECS Cluster Application Release
+
+Parameters:
+  Name:
+    Type: String
+    Description: Name of this Application
+    ConstraintDescription: Must be DNS friendly
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9\-]+$
+  ClusterName:
+    Type: String
+    Description: Name of the ECS cluster to use
+    ConstraintDescription: Must be DNS friendly
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9\-]+$
+  Revision:
+    Type: String
+    Default: latest
+  HealthCheckPath:
+    Description: Healthcheck Path used on TargetGroup
+    Type: String
+    Default: /
+  HealthCheckGracePeriod:
+    Description: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
+    Type: Number
+    Default: 60
+  HealthCheckTimeout:
+    Description: The amount of time, in seconds, during which no response means a failed health check (2-120 seconds).
+    Type: Number
+    Default: 5
+  HealthCheckInterval:
+    Description: The approximate amount of time between health checks of an individual target (5-300 seconds).
+    Type: Number
+    Default: 10
+  Image:
+    Description: Image for initial task definition placeholder
+    Type: String
+    Default: dnxsolutions/nginx-hello:latest
+  ContainerPort:
+    Description: Port container listens
+    Type: String
+  RulePriority:
+    Description: Listerner Rule Priority
+    Type: Number
+  DeregistrationDelay:
+    Description: Target Group Deregistration Delay timeout in seconds
+    Type: Number
+    Default: 30
+  Autoscaling:
+    Description: Enable Autoscaling
+    Type: String
+    Default: Disable
+    AllowedValues:
+      - Enable
+      - Disable
+  AutoscalingTargetValue:
+    Description: Target CPU for Autoscaling
+    Type: Number
+    Default: 75
+  AutoscalingMaxSize:
+    Description: Max number of containers to autoscale
+    Type: Number
+    Default: 16
+  AutoscalingMinSize:
+    Description: Min number of containers to autoscale
+    Type: Number
+    Default: 2
+  AlbScheme:
+    Description: Is the ALB internal or internet-facing?
+    Type: String
+  HostedZoneName:
+    Type: String
+    Description: Hosted Zone name for domain record created for this app
+  Hostname:
+    Type: String
+  HostnameBlue:
+    Type: String
+  HostnameRedirects:
+    Type: String
+    Default: ""
+  CertificateArn:
+    Type: String
+  WafId:
+    Type: String
+    Default: ""
+
+Conditions:
+  isAutoscaling: !Equals [ !Ref Autoscaling, 'Enable' ]
+  isInternal: !Equals [ !Ref AlbScheme, 'internal' ]
+  hasCloudfrontWaf: !Not [ !Equals [ !Ref WafId, '' ] ]
+  hasHostnameRedirects: !Not [ !Equals [ !Ref HostnameRedirects, '' ] ]
+
+Resources:
+  Route53Hostname:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: !Ref Hostname
+      HostedZoneName: !Ref HostedZoneName
+      Type: A
+      AliasTarget:
+        HostedZoneId: 
+          Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbZoneId"
+        DNSName: 
+          Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbDnsName"
