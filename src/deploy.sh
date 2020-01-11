@@ -25,6 +25,8 @@ cat app-spec.json
 
 echo "---> Creating deployment with CodeDeploy"
 
+set +e # disable bash exit on error
+
 # Update the ECS service to use the updated Task version
 aws ecs deploy \
   --service $APP_NAME \
@@ -40,10 +42,12 @@ sleep 5 # Wait for deployment to be created so we can fetch DEPLOYMENT_ID next
 
 DEPLOYMENT_ID=$(aws deploy list-deployments --application-name=$CLUSTER_NAME-$APP_NAME --deployment-group=$CLUSTER_NAME-$APP_NAME --max-items=1 --query="deployments[0]" --output=text | head -n 1)
 
-
 echo "---> For More Deployment info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
 
 echo "---> Waiting for Deployment ..."
+
+/work/tail-ecs-events.py &
+TAIL_PID=$!
 
 wait $DEPLOYMENT_PID
 RET=$?
@@ -53,5 +57,7 @@ if [ $RET -eq 0 ]; then
 else
   echo "---> ERROR: Deployment FAILED!"
 fi
+
+kill $TAIL_PID
 
 exit $RET
