@@ -8,7 +8,7 @@ RUN pip3 install --no-cache --upgrade boto3
 
 ADD src .
 
-RUN chmod +x deploy.sh task-deploy.sh
+RUN chmod +x deploy.sh task-deploy.sh run-task.sh tail-task-logs.py
 
 ENTRYPOINT [ "/bin/bash", "-c" ]
 
