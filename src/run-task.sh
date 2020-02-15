@@ -31,16 +31,27 @@ echo "       CLUSTER_NAME: ${CLUSTER_NAME}"
 echo "       APP_NAME: ${APP_NAME}"
 echo "       TASK_ARN: ${TASK_ARN}"
 
-aws ecs run-task \
+TASK_ID=$(aws ecs run-task \
   --cluster $CLUSTER_NAME \
-  --task-definition $TASK_ARN
+  --task-definition $TASK_ARN \
+  --query="tasks[0].taskArn" \
+  --output=text)
+
+sleep 5
+
+TASK_STATUS=$(aws ecs describe-tasks \
+  --tasks $TASK_ID \
+  --cluster $CLUSTER_NAME \
+  --query="tasks[0].lastStatus" \
+  --output=text)
+
+echo "---> Task Status $TASK_STATUS"
 
 
-/work/tail-ecs-events.py &
+/work/tail-task-logs.py &
 TAIL_PID=$!
 
 RET=$?
-
 
 
 if [ $RET -eq 0 ]; then
