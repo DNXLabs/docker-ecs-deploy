@@ -7,40 +7,44 @@ aws_ecs = boto3.client('ecs')
 cluster_name=os.environ['CLUSTER_NAME']
 app_name=os.environ['APP_NAME']
 task_arn=os.environ['TASK_ID']
+app_command=os.environ['DEFAULT_COMMAND']
 
 last_event = None
 
 while True:
   try:
-    response = aws_ecs.describe_services(
+    response = aws_ecs.describe_tasks(
       cluster=cluster_name,
       tasks=[
         task_arn
       ]
     )
     logs = boto3.client('logs')
-    last_status = response['tasks'][0]['lastStatus']
+    task_status = response['tasks'][0]['lastStatus']
     events_collected = []
-
-    for status in last_status:
-      print('Task status %s', status)
-    
-    task_arn=os.environ['TASK_ID']
-    
-    logStream = logs.get_log_events(
-                    logGroupName='/ecs/'+cluster_name+'/'+app_name,
-                    logStreamName='string',
-                    startFromHead=True)
-    for log in logStream:
-      print('%s\t%s' % ('{0:%Y-%m-%d %H:%M:%S %z}'.format(log['createdAt']), log['message']))
-
-    last_event = events[0]['id']
-
-    if not status == 'STOPPDED':
-        break
-    time.sleep(1)
+    print('Task status', task_status)
+    logGroupName='/ecs/'+cluster_name+'/'+app_name
+    print('Searching logs for ', logGroupName)
+    logStreams = logs.describe_log_streams(
+        logGroupName=logGroupName,
+        logStreamNamePrefix=app_name+'/'+app_command,
+        limit=1,
+        descending=True,)
+    for stream in logStreams['logStreams']:
+      streamName=stream['logStreamName']
+      print('log Streams', streamName)  
+      logStreamEvents = logs.get_log_events(
+                      logGroupName=logGroupName,
+                      logStreamName=streamName,
+                      startFromHead=True)
+      for log in logStreamEvents['events']:
+        print(log['message'])
+    if task_status == 'STOPPED':
+      break
+    time.sleep(10)
 
   except Exception as e:
     print("error: " + str(e))
+    break
 
 
