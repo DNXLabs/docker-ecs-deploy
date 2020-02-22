@@ -18,23 +18,6 @@ if [[ -z "$CERTIFICATE_ARN" ]];    then echo "---> ERROR: Missing variable CERTI
 
 if [[ "$ERROR" == "1" ]]; then exit 1; fi
 
-echo "---> Creating/Updating Cloudformation Application Stack"
-echo "--->    STACK_NAME: ecs-app-${CLUSTER_NAME}-${APP_NAME}-${REVISION-latest}"
-echo "--->    AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
-echo "--->    APP_NAME: $APP_NAME"
-echo "--->    CLUSTER_NAME: $CLUSTER_NAME"
-
-aws cloudformation deploy \
-  --template-file ./cf-service-common.yml \
-  --stack-name ecs-app-${CLUSTER_NAME}-${APP_NAME} \
-  --parameter-overrides \
-    Name=$APP_NAME \
-    ClusterName=$CLUSTER_NAME \
-    HostedZoneName=$HOSTEDZONE_NAME \
-    Hostname=$HOSTNAME \
-    HostnameBlue=$HOSTNAME_BLUE \
-    CertificateArn=$CERTIFICATE_ARN \
-    HostnameRedirects=${HOSTNAME_REDIRECTS-} \
 
 echo "---> Creating/Updating Cloudformation Application Stack"
 echo "--->    STACK_NAME: ecs-app-${CLUSTER_NAME}-${APP_NAME}-${REVISION-latest}"
@@ -49,10 +32,9 @@ aws cloudformation deploy \
   --stack-name ecs-app-${CLUSTER_NAME}-${APP_NAME}-${REVISION-latest} \
   --parameter-overrides \
     Name=$APP_NAME \
-    ClusterName=$CLUSTER_NAME \
-    ContainerPort=$CONTAINER_PORT \
-    HostnameRedirects=${HOSTNAME_REDIRECTS-} \
-    RulePriority=$RULE_PRIORITY \
+    ClusterName=${CLUSTER_NAME} \
+    ContainerPort=${CONTAINER_PORT} \
+    RulePriority=${RULE_PRIORITY} \
     Revision=${REVISION-latest} \
     HealthCheckPath=${HEALTHCHECK_PATH-/} \
     HealthCheckGracePeriod=${HEALTHCHECK_GRACE_PERIOD-60} \
@@ -63,19 +45,35 @@ aws cloudformation deploy \
     AutoscalingTargetValue=${AUTOSCALING_TARGET_VALUE-50} \
     AutoscalingMaxSize=${AUTOSCALING_MAX_SIZE-6} \
     AutoscalingMinSize=${AUTOSCALING_MIN_SIZE-1} \
+    HostedZoneName=$HOSTEDZONE_NAME \
+    Hostname=$HOSTNAME \
+    HostnameBlue=$HOSTNAME_BLUE \
+    # HostnameRedirects=${HOSTNAME_REDIRECTS-} \
+    # CertificateArn=$CERTIFICATE_ARN \
+
 
 envsubst < task-definition.tpl.json > task-definition.json
 echo "---> Task Definition"
 cat task-definition.json
 
-export TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://./task-definition.json | jq --raw-output '.taskDefinition.taskDefinitionArn')
-echo "---> Registered ECS Task Definition"
-echo "--->    TASK_ARN: $TASK_ARN"
+export TASK_ARN=TASK_ARN_PLACEHOLDER
 
-# TODO:
-# - Create a task set in the ecs service create above
-# - Wait for healthcheck to pass and finish deployment
-# - Cutover
+envsubst < app-spec.tpl.json > app-spec.json
+echo "---> App-spec for CodeDeploy"
+cat app-spec.json
+
+echo "---> Creating deployment with CodeDeploy"
+
+set +e # disable bash exit on error
+
+# Update the ECS service to use the updated Task version
+aws ecs deploy \
+  --service $APP_NAME \
+  --task-definition ./task-definition.json \
+  --cluster $CLUSTER_NAME \
+  --codedeploy-appspec ./app-spec.json \
+  --codedeploy-application $CLUSTER_NAME-$APP_NAME \
+  --codedeploy-deployment-group $CLUSTER_NAME-$APP_NAME &
 
 DEPLOYMENT_PID=$!
 
@@ -83,9 +81,12 @@ sleep 5 # Wait for deployment to be created so we can fetch DEPLOYMENT_ID next
 
 DEPLOYMENT_ID=$(aws deploy list-deployments --application-name=$CLUSTER_NAME-$APP_NAME --deployment-group=$CLUSTER_NAME-$APP_NAME --max-items=1 --query="deployments[0]" --output=text | head -n 1)
 
-
+echo "---> For More Deployment info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
 
 echo "---> Waiting for Deployment ..."
+
+/work/tail-ecs-events.py &
+TAIL_PID=$!
 
 wait $DEPLOYMENT_PID
 RET=$?
@@ -95,5 +96,7 @@ if [ $RET -eq 0 ]; then
 else
   echo "---> ERROR: Deployment FAILED!"
 fi
+
+kill $TAIL_PID
 
 exit $RET
