@@ -14,40 +14,44 @@ if [[ -z "$IMAGE_NAME" ]];         then echo "---> ERROR: Missing variable IMAGE
 if [[ -z "$HOSTEDZONE_NAME" ]];    then echo "---> ERROR: Missing variable HOSTEDZONE_NAME"; ERROR=1; fi
 if [[ -z "$HOSTNAME" ]];           then echo "---> ERROR: Missing variable HOSTNAME"; ERROR=1; fi
 if [[ -z "$HOSTNAME_BLUE" ]];      then echo "---> ERROR: Missing variable HOSTNAME_BLUE"; ERROR=1; fi
-if [[ -z "$CERTIFICATE_ARN" ]];    then echo "---> ERROR: Missing variable CERTIFICATE_ARN"; ERROR=1; fi
+if [[ -z "$PATH_PATTERN" ]];       then echo "---> ERROR: Missing variable PATH_PATTERN"; ERROR=1; fi
+if [[ -z "$RULE_PRIORITY" ]];      then echo "---> ERROR: Missing variable RULE_PRIORITY"; ERROR=1; fi
 
 if [[ "$ERROR" == "1" ]]; then exit 1; fi
 
 
 echo "---> Creating/Updating Cloudformation Application Stack"
-echo "--->    STACK_NAME: ecs-app-${CLUSTER_NAME}-${APP_NAME}-${REVISION-latest}"
+echo "--->    STACK_NAME: ecs-app-${CLUSTER_NAME}-${APP_NAME}"
 echo "--->    AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
 echo "--->    APP_NAME: $APP_NAME"
 echo "--->    CLUSTER_NAME: $CLUSTER_NAME"
 echo "--->    HOSTNAME: $HOSTNAME"
 echo "--->    HOSTNAME_BLUE: $HOSTNAME_BLUE"
 
+# check if there's a stack with same name in rollback_complete status
+
 aws cloudformation deploy \
   --template-file ./cf-service.yml \
-  --stack-name ecs-app-${CLUSTER_NAME}-${APP_NAME}-${REVISION-latest} \
+  --stack-name ecs-app-${CLUSTER_NAME}-${APP_NAME} \
+  --no-fail-on-empty-changeset \
   --parameter-overrides \
     Name=$APP_NAME \
     ClusterName=${CLUSTER_NAME} \
     ContainerPort=${CONTAINER_PORT} \
     RulePriority=${RULE_PRIORITY} \
-    Revision=${REVISION-latest} \
     HealthCheckPath=${HEALTHCHECK_PATH-/} \
     HealthCheckGracePeriod=${HEALTHCHECK_GRACE_PERIOD-60} \
     HealthCheckTimeout=${HEALTHCHECK_TIMEOUT-5} \
     HealthCheckInterval=${HEALTHCHECK_INTERVAL-10} \
     DeregistrationDelay=${DEREGISTRATION_DELAY-30} \
-    Autoscaling=${AUTOSCALING-Enable} \
+    Autoscaling=${AUTOSCALING-true} \
     AutoscalingTargetValue=${AUTOSCALING_TARGET_VALUE-50} \
     AutoscalingMaxSize=${AUTOSCALING_MAX_SIZE-6} \
     AutoscalingMinSize=${AUTOSCALING_MIN_SIZE-1} \
     HostedZoneName=$HOSTEDZONE_NAME \
     Hostname=$HOSTNAME \
     HostnameBlue=$HOSTNAME_BLUE \
+    PathPattern=${PATH_PATTERN-/*}
     # HostnameRedirects=${HOSTNAME_REDIRECTS-} \
     # CertificateArn=$CERTIFICATE_ARN \
 

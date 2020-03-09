@@ -13,9 +13,12 @@ Parameters:
     Description: Name of the ECS cluster to use
     ConstraintDescription: Must be DNS friendly
     AllowedPattern: ^[a-zA-Z][a-zA-Z0-9\-]+$
-  Revision:
+  ContainerPort:
+    Description: Port container listens
     Type: String
-    Default: latest
+  RulePriority:
+    Description: Listerner Rule Priority
+    Type: Number
   HealthCheckPath:
     Description: Healthcheck Path used on TargetGroup
     Type: String
@@ -32,16 +35,6 @@ Parameters:
     Description: The approximate amount of time between health checks of an individual target (5-300 seconds).
     Type: Number
     Default: 10
-  Image:
-    Description: Image for initial task definition placeholder
-    Type: String
-    Default: dnxsolutions/nginx-hello:latest
-  ContainerPort:
-    Description: Port container listens
-    Type: String
-  RulePriority:
-    Description: Listerner Rule Priority
-    Type: Number
   DeregistrationDelay:
     Description: Target Group Deregistration Delay timeout in seconds
     Type: Number
@@ -49,10 +42,10 @@ Parameters:
   Autoscaling:
     Description: Enable Autoscaling
     Type: String
-    Default: Disable
+    Default: false
     AllowedValues:
-      - Enable
-      - Disable
+      - true
+      - false
   AutoscalingTargetValue:
     Description: Target CPU for Autoscaling
     Type: Number
@@ -72,19 +65,20 @@ Parameters:
     Type: String
   HostnameBlue:
     Type: String
-  HostnameRedirects:
+  HostnameCreate:
     Type: String
-    Default: ""
-  CertificateArn:
+    Default: "true"
+  PathPattern:
     Type: String
-  WafId:
+    Default: "/*"
+  Image:
+    Description: Image for initial task definition placeholder
     Type: String
-    Default: ""
+    Default: dnxsolutions/nginx-hello:latest
 
 Conditions:
-  isAutoscaling: !Equals [ !Ref Autoscaling, 'Enable' ]
-  hasCloudfrontWaf: !Not [ !Equals [ !Ref WafId, '' ] ]
-  hasHostnameRedirects: !Not [ !Equals [ !Ref HostnameRedirects, '' ] ]
+  isHostnameCreate: !Equals [ !Ref HostnameCreate, 'true' ]
+  isAutoscaling: !Equals [ !Ref Autoscaling, 'true' ]
 
 Resources:
   AlbTargetGroup:
@@ -113,8 +107,13 @@ Resources:
             Ref: AlbTargetGroup
       Conditions:
         - Field: host-header
-          Values:
-            - !Sub "${Name}-${Revision}.*"
+          HostHeaderConfig:
+            Values:
+              - !Ref Hostname
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - !Ref Path
       ListenerArn: 
         Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbListenerHttpsArn"
       Priority: !Ref RulePriority
@@ -134,6 +133,7 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn: ListenerRule
     Properties:
+      ServiceName: !Ref Name
       TaskDefinition: !Ref TaskDefinition
       DesiredCount: 1
       PlacementStrategies:
@@ -180,6 +180,7 @@ Resources:
 
   Route53Hostname:
     Type: AWS::Route53::RecordSet
+    Condition: isHostnameCreate
     Properties:
       Name: !Ref Hostname
       HostedZoneName: !Ref HostedZoneName
@@ -189,3 +190,9 @@ Resources:
           Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbZoneId"
         DNSName: 
           Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbDnsName"
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Sub "${ClusterName}-${Name}"
+      ComputePlatform: ECS
