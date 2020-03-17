@@ -9,8 +9,7 @@
           "LoadBalancerInfo": {
             "ContainerName": "$APP_NAME",
             "ContainerPort": $CONTAINER_PORT
-          },
-          "PlatformVersion": "LATEST"
+          }
         }
       }
     }

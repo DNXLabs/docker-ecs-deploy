@@ -16,9 +16,6 @@ Parameters:
   ContainerPort:
     Description: Port container listens
     Type: String
-  RulePriority:
-    Description: Listerner Rule Priority
-    Type: Number
   HealthCheckPath:
     Description: Healthcheck Path used on TargetGroup
     Type: String
@@ -81,9 +78,10 @@ Conditions:
   isAutoscaling: !Equals [ !Ref Autoscaling, 'true' ]
 
 Resources:
-  AlbTargetGroup:
+  AlbTargetGroupGreen:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
+      Name: !Sub "${ClusterName}-${Name}-G"
       HealthCheckIntervalSeconds: !Ref HealthCheckInterval
       HealthCheckPath: !Ref HealthCheckPath
       HealthCheckProtocol: HTTP
@@ -98,13 +96,31 @@ Resources:
       VpcId:
         Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-VpcId"
 
-  ListenerRule:
+  AlbTargetGroupBlue:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ClusterName}-${Name}-B"
+      HealthCheckIntervalSeconds: !Ref HealthCheckInterval
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: !Ref HealthCheckTimeout
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: !Ref DeregistrationDelay
+      VpcId:
+        Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-VpcId"
+
+  ListenerRuleGreen:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       Actions:
         - Type: forward
           TargetGroupArn:
-            Ref: AlbTargetGroup
+            Ref: AlbTargetGroupGreen
       Conditions:
         - Field: host-header
           HostHeaderConfig:
@@ -113,27 +129,47 @@ Resources:
         - Field: path-pattern
           PathPatternConfig:
             Values:
-              - !Ref Path
-      ListenerArn: 
+              - !Ref PathPattern
+      ListenerArn:
         Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbListenerHttpsArn"
-      Priority: !Ref RulePriority
+      Priority: !GetAtt AlbListernerPriority.Value
 
-  TaskDefinition: 
+  ListenerRuleBlue:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: AlbTargetGroupGreen
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+              - !Ref HostnameBlue
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - !Ref PathPattern
+      ListenerArn:
+        Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbListenerHttpsArn"
+      Priority: !GetAtt AlbListernerPriority.NextValue
+
+  TaskDefinition:
     Type: AWS::ECS::TaskDefinition
-    Properties: 
-      ContainerDefinitions: 
+    Properties:
+      ContainerDefinitions:
         - Name: !Ref Name
           Image: !Ref Image
-          PortMappings: 
+          PortMappings:
             - ContainerPort: !Ref ContainerPort
           Memory: "128"
           Essential: true
 
   EcsService:
     Type: AWS::ECS::Service
-    DependsOn: ListenerRule
+    DependsOn: ListenerRuleGreen
     Properties:
-      ServiceName: !Ref Name
+      ServiceName: !Sub "${Name}"
       TaskDefinition: !Ref TaskDefinition
       DesiredCount: 1
       PlacementStrategies:
@@ -141,15 +177,17 @@ Resources:
           Field: attribute:ecs.availability-zone
         - Type: binpack
           Field: memory
+      DeploymentController:
+        Type: CODE_DEPLOY
       HealthCheckGracePeriodSeconds: !Ref HealthCheckGracePeriod
-      Cluster: 
+      Cluster:
         Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-EcsName"
-      Role: 
+      Role:
         Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-EcsServiceIamRoleArn"
       LoadBalancers:
         - ContainerName: !Sub "${Name}"
           ContainerPort: !Ref ContainerPort
-          TargetGroupArn: !Ref AlbTargetGroup
+          TargetGroupArn: !Ref AlbTargetGroupGreen
 
   ServiceScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
@@ -160,7 +198,7 @@ Resources:
       MinCapacity: !Ref AutoscalingMinSize
       ResourceId: !Sub
         - "service/${ECSCluster}/${ServiceName}"
-        - ECSCluster: 
+        - ECSCluster:
             Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-EcsName"
           ServiceName: !GetAtt EcsService.Name
       ScalableDimension: ecs:service:DesiredCount
@@ -186,9 +224,9 @@ Resources:
       HostedZoneName: !Ref HostedZoneName
       Type: A
       AliasTarget:
-        HostedZoneId: 
+        HostedZoneId:
           Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbZoneId"
-        DNSName: 
+        DNSName:
           Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbDnsName"
 
   CodeDeployApplication:
@@ -196,3 +234,254 @@ Resources:
     Properties:
       ApplicationName: !Sub "${ClusterName}-${Name}"
       ComputePlatform: ECS
+
+  CodeDeployServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - codedeploy.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS
+
+  CodeDeployDeploymentGroup:
+    Type: Custom::CustomCodeDeployDeploymentGroup
+    Properties:
+      ServiceToken: !GetAtt 'CustomResourceFunctionCodeDeploy.Arn'
+      Name: !Sub "${ClusterName}-${Name}"
+      ApplicationName: !Ref CodeDeployApplication
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      AlbTargetGroupBlueName: !GetAtt AlbTargetGroupBlue.TargetGroupName
+      AlbTargetGroupGreenName: !GetAtt AlbTargetGroupGreen.TargetGroupName
+      AlbListenerArn:
+        Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbListenerHttpsArn"
+      EcsServiceName: !GetAtt EcsService.Name
+      EcsClusterName:
+        Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-EcsName"
+
+  CustomResourceFunctionCodeDeploy:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Timeout: 30
+      Role: !GetAtt 'CustomResourceFunctionCodeDeployRole.Arn'
+      Runtime: python3.6
+      Code:
+        ZipFile: |
+          import base64
+          import json
+          import logging
+          import string
+          import random
+          import boto3
+          from botocore.vendored import requests
+          import cfnresponse
+
+          client = boto3.client('codedeploy')
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+            logger.info('got event {}'.format(event))
+            responseData = {}
+
+            if event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+              response = client.create_deployment_group(
+                  applicationName=event['ResourceProperties']['ApplicationName'],
+                  deploymentGroupName=event['ResourceProperties']['Name'],
+                  deploymentConfigName='CodeDeployDefault.ECSAllAtOnce',
+                  serviceRoleArn=event['ResourceProperties']['ServiceRoleArn'],
+                  autoRollbackConfiguration={
+                      'enabled': True,
+                      'events': [
+                          'DEPLOYMENT_FAILURE',
+                      ]
+                  },
+                  deploymentStyle={
+                      'deploymentType': 'BLUE_GREEN',
+                      'deploymentOption': 'WITH_TRAFFIC_CONTROL'
+                  },
+                  blueGreenDeploymentConfiguration={
+                      'terminateBlueInstancesOnDeploymentSuccess': {
+                          'action': 'TERMINATE',
+                          'terminationWaitTimeInMinutes': 0
+                      },
+                      'deploymentReadyOption': {
+                          'actionOnTimeout': 'CONTINUE_DEPLOYMENT',
+                          'waitTimeInMinutes': 0
+                      }
+                  },
+                  loadBalancerInfo={
+                      'targetGroupPairInfoList': [
+                          {
+                              'targetGroups': [
+                                  {
+                                      'name': event['ResourceProperties']['AlbTargetGroupBlueName']
+                                  },
+                                  {
+                                      'name': event['ResourceProperties']['AlbTargetGroupGreenName']
+                                  },
+                              ],
+                              'prodTrafficRoute': {
+                                  'listenerArns': [
+                                      event['ResourceProperties']['AlbListenerArn'],
+                                  ]
+                              },
+                          },
+                      ]
+                  },
+                  ecsServices=[
+                      {
+                          'serviceName': event['ResourceProperties']['EcsServiceName'],
+                          'clusterName': event['ResourceProperties']['EcsClusterName'],
+                      },
+                  ],
+              )
+              responseData['response'] = response
+
+            else:
+              response = client.delete_deployment_group(
+                  applicationName=event['ResourceProperties']['ApplicationName'],
+                  deploymentGroupName=event['ResourceProperties']['Name'],
+              )
+              response['deploymentGroupId'] = ""
+
+            logger.info('event {}'.format(event))
+            logger.info('responseData {}'.format(responseData))
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, response['deploymentGroupId'])
+
+  CustomResourceFunctionCodeDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - codedeploy:*
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - iam:PassRole
+            Resource: "*"
+
+  AlbListernerPriority:
+    Type: Custom::CustomCodeDeployDeploymentGroup
+    Properties:
+      ServiceToken: !GetAtt 'CustomResourceFunctionAlbPriority.Arn'
+      AlbListenerArn:
+        Fn::ImportValue: !Sub "TfExport-Ecs-${ClusterName}-AlbListenerHttpsArn"
+
+  CustomResourceFunctionAlbPriority:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Timeout: 30
+      Role: !GetAtt 'CustomResourceFunctionAlbPriorityRole.Arn'
+      Runtime: python3.6
+      Code:
+        ZipFile: |
+          import logging
+          import boto3
+          from botocore.vendored import requests
+          import cfnresponse
+
+          client = boto3.client('elbv2')
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+            logger.info('got event {}'.format(event))
+            responseData = {}
+
+            highestPriority = 1
+
+            if event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+
+              extraArgs = {
+                'ListenerArn': event['ResourceProperties']['AlbListenerArn']
+              }
+
+              while True:
+                response = client.describe_rules(**extraArgs)
+                for rule in response['Rules']:
+                  if rule['Priority'] == 'default':
+                    continue
+                  if int(rule['Priority']) > highestPriority:
+                    highestPriority = int(rule['Priority'])
+
+                if not 'NextMarker' in response:
+                    break
+                extraArgs['Marker'] = response['NextMarker']
+
+              responseData = {
+                'Value': str(highestPriority+1),
+                'NextValue': str(highestPriority+2)
+              }
+
+            else:
+              pass
+
+            logger.info('event {}'.format(event))
+            logger.info('responseData {}'.format(responseData))
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, str(highestPriority+1))
+
+  CustomResourceFunctionAlbPriorityRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - elasticloadbalancing:DescribeRules
+            Resource: "*"
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 7
+      LogGroupName: !Sub "/ecs/${ClusterName}/${Name}"

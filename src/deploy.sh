@@ -10,15 +10,12 @@ if [[ -z "$AWS_DEFAULT_REGION" ]]; then echo "---> ERROR: Missing variable AWS_D
 if [[ -z "$APP_NAME" ]];           then echo "---> ERROR: Missing variable APP_NAME"; ERROR=1; fi
 if [[ -z "$CLUSTER_NAME" ]];       then echo "---> ERROR: Missing variable CLUSTER_NAME"; ERROR=1; fi
 if [[ -z "$CONTAINER_PORT" ]];     then echo "---> ERROR: Missing variable CONTAINER_PORT"; ERROR=1; fi
-if [[ -z "$IMAGE_NAME" ]];         then echo "---> ERROR: Missing variable IMAGE_NAME"; ERROR=1; fi
 if [[ -z "$HOSTEDZONE_NAME" ]];    then echo "---> ERROR: Missing variable HOSTEDZONE_NAME"; ERROR=1; fi
 if [[ -z "$HOSTNAME" ]];           then echo "---> ERROR: Missing variable HOSTNAME"; ERROR=1; fi
 if [[ -z "$HOSTNAME_BLUE" ]];      then echo "---> ERROR: Missing variable HOSTNAME_BLUE"; ERROR=1; fi
-if [[ -z "$PATH_PATTERN" ]];       then echo "---> ERROR: Missing variable PATH_PATTERN"; ERROR=1; fi
-if [[ -z "$RULE_PRIORITY" ]];      then echo "---> ERROR: Missing variable RULE_PRIORITY"; ERROR=1; fi
+if [[ -z "$IMAGE_NAME" ]];         then echo "---> ERROR: Missing variable IMAGE_NAME"; ERROR=1; fi
 
 if [[ "$ERROR" == "1" ]]; then exit 1; fi
-
 
 echo "---> Creating/Updating Cloudformation Application Stack"
 echo "--->    STACK_NAME: ecs-app-${CLUSTER_NAME}-${APP_NAME}"
@@ -29,16 +26,15 @@ echo "--->    HOSTNAME: $HOSTNAME"
 echo "--->    HOSTNAME_BLUE: $HOSTNAME_BLUE"
 
 # check if there's a stack with same name in rollback_complete status
-
 aws cloudformation deploy \
   --template-file ./cf-service.yml \
   --stack-name ecs-app-${CLUSTER_NAME}-${APP_NAME} \
   --no-fail-on-empty-changeset \
+  --capabilities CAPABILITY_IAM \
   --parameter-overrides \
     Name=$APP_NAME \
     ClusterName=${CLUSTER_NAME} \
     ContainerPort=${CONTAINER_PORT} \
-    RulePriority=${RULE_PRIORITY} \
     HealthCheckPath=${HEALTHCHECK_PATH-/} \
     HealthCheckGracePeriod=${HEALTHCHECK_GRACE_PERIOD-60} \
     HealthCheckTimeout=${HEALTHCHECK_TIMEOUT-5} \
@@ -54,7 +50,6 @@ aws cloudformation deploy \
     PathPattern=${PATH_PATTERN-/*}
     # HostnameRedirects=${HOSTNAME_REDIRECTS-} \
     # CertificateArn=$CERTIFICATE_ARN \
-
 
 envsubst < task-definition.tpl.json > task-definition.json
 echo "---> Task Definition"
