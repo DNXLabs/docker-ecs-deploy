@@ -17,39 +17,60 @@ envsubst < task-definition.tpl.json > task-definition.json
 echo "---> Task Definition"
 cat task-definition.json
 
-export TASK_ARN=TASK_ARN_PLACEHOLDER
+export TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://./task-definition.json | jq --raw-output '.taskDefinition.taskDefinitionArn')
+# export TASK_ARN=TASK_ARN_PLACEHOLDER
 
 envsubst < app-spec.tpl.json > app-spec.json
+echo
 echo "---> App-spec for CodeDeploy"
 cat app-spec.json
 
+echo
 echo "---> Creating deployment with CodeDeploy"
 
 set +e # disable bash exit on error
 
 # Update the ECS service to use the updated Task version
-aws ecs deploy \
-  --service $APP_NAME \
-  --task-definition ./task-definition.json \
-  --cluster $CLUSTER_NAME \
-  --codedeploy-appspec ./app-spec.json \
-  --codedeploy-application $CLUSTER_NAME-$APP_NAME \
-  --codedeploy-deployment-group $CLUSTER_NAME-$APP_NAME &
+# aws ecs deploy \
+#   --service $APP_NAME \
+#   --task-definition ./task-definition.json \
+#   --cluster $CLUSTER_NAME \
+#   --codedeploy-appspec ./app-spec.json \
+#   --codedeploy-application $CLUSTER_NAME-$APP_NAME \
+#   --codedeploy-deployment-group $CLUSTER_NAME-$APP_NAME &
 
-DEPLOYMENT_PID=$!
+# # Update the ECS service to use the updated Task version
+DEPLOYMENT_ID=$(aws deploy create-deployment \
+  --application-name $CLUSTER_NAME-$APP_NAME \
+  --deployment-config-name CodeDeployDefault.ECSAllAtOnce \
+  --deployment-group-name $CLUSTER_NAME-$APP_NAME \
+  --description Deployment \
+  --revision file://app-spec.json \
+  --query="deploymentId" --output text)
 
-sleep 5 # Wait for deployment to be created so we can fetch DEPLOYMENT_ID next
+# sleep 5 # Wait for deployment to be created so we can fetch DEPLOYMENT_ID next
 
-DEPLOYMENT_ID=$(aws deploy list-deployments --application-name=$CLUSTER_NAME-$APP_NAME --deployment-group=$CLUSTER_NAME-$APP_NAME --max-items=1 --query="deployments[0]" --output=text | head -n 1)
+# DEPLOYMENT_ID=$(aws deploy list-deployments --application-name=$CLUSTER_NAME-$APP_NAME --deployment-group=$CLUSTER_NAME-$APP_NAME --max-items=1 --query="deployments[0]" --output=text | head -n 1)
 
-echo "---> For More Deployment info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
-
-echo "---> Waiting for Deployment ..."
+echo "---> For more info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
 
 /work/tail-ecs-events.py &
 TAIL_PID=$!
 
-wait $DEPLOYMENT_PID
+while [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Created" ]
+do
+  sleep 1
+done
+
+echo "---> Deployment created!"
+
+while [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "InProgress" ]
+do
+  sleep 1
+done
+
+# aws deploy wait deployment-successful --deployment-id $DEPLOYMENT_ID
+
 RET=$?
 
 if [ $RET -eq 0 ]; then

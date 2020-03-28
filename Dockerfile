@@ -1,4 +1,4 @@
-FROM dnxsolutions/aws:1.16.263-dnx2
+FROM dnxsolutions/aws:1.17.14-dnx3
 
 RUN apk --no-cache update && \
     apk --no-cache add python3 && \
