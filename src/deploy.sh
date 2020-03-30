@@ -48,6 +48,13 @@ DEPLOYMENT_ID=$(aws deploy create-deployment \
   --revision file://app-spec.json \
   --query="deploymentId" --output text)
 
+# In case there is already a deployment in progress, script will fail  
+
+if [ $? -eq 255 ]; then
+    echo "Deployment already in progress. Please approve current deployment before performing a new deployment"
+    exit 1
+else
+
 sleep 5 # Wait for deployment to be created
 
 echo "---> For more info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
@@ -67,9 +74,39 @@ do
   sleep 1
 done
 
-# aws deploy wait deployment-successful --deployment-id $DEPLOYMENT_ID
+# Due the known issue on Codedeploy, CodeDeploy will fail the deployment if the ECS service is unhealthy/unstable for 5mins for replacement 
+# taskset during the wait status, this 5mins is a non-configurable value as today.
+# For the reason above we wait for 10 minutes before consider the deployment in ready status as successful
 
 RET=$?
+
+wait_period=0
+
+while true
+do
+    echo "Time Now: `date +%H:%M:%S`"
+    echo "Sleeping for 30 seconds"
+    # Here 600 is 600 seconds i.e. 10 minutes * 60 = 600 sec
+    wait_period=$(($wait_period+30))
+    #if [ $wait_period -gt 600 ] && [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Ready" ]; then
+    if [ $wait_period -gt 600 ]; then
+         echo "The script successfully ran for 10 minutes, exiting now.."
+             if ! [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Ready" ]; then
+               #echo "Deployment not successful"
+               RET=1
+               break
+             elif [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Ready" ]; then
+               #echo "Deployed successfully!"
+               RET=0
+               break
+             fi
+         break
+      else
+         sleep 30
+      fi
+done
+
+#RET=$?
 
 if [ $RET -eq 0 ]; then
   echo "---> Deployment completed!"
@@ -80,3 +117,5 @@ fi
 kill $TAIL_PID
 
 exit $RET
+
+fi
