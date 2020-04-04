@@ -18,7 +18,6 @@ echo "---> Task Definition"
 cat task-definition.json
 
 export TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://./task-definition.json | jq --raw-output '.taskDefinition.taskDefinitionArn')
-# export TASK_ARN=TASK_ARN_PLACEHOLDER
 
 envsubst < app-spec.tpl.json > app-spec.json
 echo
@@ -30,15 +29,6 @@ echo "---> Creating deployment with CodeDeploy"
 
 set +e # disable bash exit on error
 
-# Update the ECS service to use the updated Task version
-# aws ecs deploy \
-#   --service $APP_NAME \
-#   --task-definition ./task-definition.json \
-#   --cluster $CLUSTER_NAME \
-#   --codedeploy-appspec ./app-spec.json \
-#   --codedeploy-application $CLUSTER_NAME-$APP_NAME \
-#   --codedeploy-deployment-group $CLUSTER_NAME-$APP_NAME &
-
 # # Update the ECS service to use the updated Task version
 DEPLOYMENT_ID=$(aws deploy create-deployment \
   --application-name $CLUSTER_NAME-$APP_NAME \
@@ -49,9 +39,12 @@ DEPLOYMENT_ID=$(aws deploy create-deployment \
   --query="deploymentId" --output text)
 
 # In case there is already a deployment in progress, script will fail  
-
 if [ $? -eq 255 ]; then
-    echo "Deployment already in progress. Please approve current deployment before performing a new deployment"
+    echo
+    echo
+    echo "===> Deployment already in progress. Please approve current deployment before performing a new deployment"
+    echo
+    echo
     exit 1
 else
 
@@ -61,6 +54,8 @@ echo "---> For more info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/cod
 
 /work/tail-ecs-events.py &
 TAIL_PID=$!
+
+RET=0
 
 while [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Created" ]
 do
@@ -78,39 +73,45 @@ done
 # taskset during the wait status, this 5mins is a non-configurable value as today.
 # For the reason above we wait for 10 minutes before consider the deployment in ready status as successful
 
-RET=$?
+WAIT_PERIOD=0
+MAX_WAIT=300 #$(aws ecs describe-services --cluster $CLUSTER_NAME --service $APP_NAME --query services[0].healthCheckGracePeriodSeconds --output text)
+MAX_WAIT_BUFFER=60
 
-wait_period=0
+echo
+echo "---> Waiting $((MAX_WAIT + MAX_WAIT_BUFFER))s for tasks to stabilise"
+echo
 
-while true
+while [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Ready" ]
 do
-    echo "Time Now: `date +%H:%M:%S`"
-    echo "Sleeping for 30 seconds"
-    # Here 600 is 600 seconds i.e. 10 minutes * 60 = 600 sec
-    wait_period=$(($wait_period+30))
-    #if [ $wait_period -gt 600 ] && [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Ready" ]; then
-    if [ $wait_period -gt 600 ]; then
-         echo "The script successfully ran for 10 minutes, exiting now.."
-             if ! [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Ready" ]; then
-               #echo "Deployment not successful"
-               RET=1
-               break
-             elif [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Ready" ]; then
-               #echo "Deployed successfully!"
-               RET=0
-               break
-             fi
-         break
-      else
-         sleep 30
-      fi
+  if [ "$WAIT_PERIOD" -ge "$((MAX_WAIT + MAX_WAIT_BUFFER))" ]; then
+    break
+  fi
+  sleep 10
+  WAIT_PERIOD=$((WAIT_PERIOD + 10))
 done
 
-#RET=$?
+DEPLOYMENT_STATUS=$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)
+echo
+echo "---> Deployment status: $DEPLOYMENT_STATUS"
+echo
+
+if [ "$DEPLOYMENT_STATUS" == "Failed" ]
+then
+  RET=1
+elif [ "$DEPLOYMENT_STATUS" == "Stopped" ]
+then
+  RET=1
+elif [ "$DEPLOYMENT_STATUS" == "Succeeded" ]
+then
+  RET=0
+fi
 
 if [ $RET -eq 0 ]; then
-  echo "---> Deployment completed!"
+
+  echo
+  echo "---> Completed!"
 else
+  echo
   echo "---> ERROR: Deployment FAILED!"
 fi
 
