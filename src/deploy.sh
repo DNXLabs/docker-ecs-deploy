@@ -40,20 +40,20 @@ DEPLOYMENT_ID=$(aws deploy create-deployment \
 
 # In case there is already a deployment in progress, script will fail  
 if [ $? -eq 255 ]; then
-    echo
-    echo
-    echo "===> Deployment already in progress. Please approve current deployment before performing a new deployment"
-    echo
-    echo
-    exit 1
-else
+  echo
+  echo
+  echo "===> Deployment already in progress. Please approve current deployment before performing a new deployment"
+  echo
+  echo
+  exit 1
+fi
 
 sleep 5 # Wait for deployment to be created
 
 echo "---> For more info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
 
 /work/tail-ecs-events.py &
-TAIL_PID=$!
+TAIL_ECS_EVENTS_PID=$!
 
 RET=0
 
@@ -69,6 +69,11 @@ do
   sleep 1
 done
 
+TASK_SET_ID=$(aws ecs describe-services --cluster $CLUSTER_NAME --service $APP_NAME --query "services[0].taskSets[?status == 'ACTIVE'].id" --output text)
+if [ "${TASK_SET_ID}" != "" ]; then
+  echo "---> Task Set ID: $TASK_SET_ID"
+fi
+
 # Due the known issue on Codedeploy, CodeDeploy will fail the deployment if the ECS service is unhealthy/unstable for 5mins for replacement 
 # taskset during the wait status, this 5mins is a non-configurable value as today.
 # For the reason above we wait for 10 minutes before consider the deployment in ready status as successful
@@ -78,7 +83,8 @@ MAX_WAIT=300 #$(aws ecs describe-services --cluster $CLUSTER_NAME --service $APP
 MAX_WAIT_BUFFER=60
 
 echo
-echo "---> Waiting $((MAX_WAIT + MAX_WAIT_BUFFER))s for tasks to stabilise"
+echo
+echo "---> Waiting $((MAX_WAIT + MAX_WAIT_BUFFER)) seconds for tasks to stabilise"
 echo
 
 while [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "Ready" ]
@@ -97,6 +103,12 @@ echo
 
 if [ "$DEPLOYMENT_STATUS" == "Failed" ]
 then
+  TASK_ARN=$(aws ecs list-tasks --cluster dev --desired-status STOPPED --started-by $TASK_SET_ID --query taskArns[0] --output text)
+  if [ "${TASK_ARN}" != "None" ]; then
+    echo "---> Displaying logs of STOPPED task: $TASK_ARN"
+    echo
+    /work/tail-task-logs.py $TASK_ARN
+  fi
   RET=1
 elif [ "$DEPLOYMENT_STATUS" == "Stopped" ]
 then
@@ -107,7 +119,6 @@ then
 fi
 
 if [ $RET -eq 0 ]; then
-
   echo
   echo "---> Completed!"
 else
@@ -115,8 +126,6 @@ else
   echo "---> ERROR: Deployment FAILED!"
 fi
 
-kill $TAIL_PID
+kill $TAIL_ECS_EVENTS_PID
 
 exit $RET
-
-fi
