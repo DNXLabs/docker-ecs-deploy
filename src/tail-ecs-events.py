@@ -28,7 +28,7 @@ while True:
       events_collected.insert(0, event)
 
     for event_collected in events_collected:
-      print('%s\t%s' % ('{0:%Y-%m-%d %H:%M:%S %z}'.format(event_collected['createdAt']), event_collected['message']))
+      print('%s %s' % ('{0:%Y-%m-%d %H:%M:%S %z}'.format(event_collected['createdAt']), event_collected['message']))
 
     last_event = events[0]['id']
     time.sleep(5)
