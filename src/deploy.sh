@@ -13,6 +13,12 @@ if [[ -z "$CONTAINER_PORT" ]];     then echo "---> ERROR: Missing variable CONTA
 if [[ -z "$IMAGE_NAME" ]];         then echo "---> ERROR: Missing variable IMAGE_NAME"; ERROR=1; fi
 if [[ "$ERROR" == "1" ]]; then exit 1; fi
 
+if [[  -z "$DEPLOY_TIMEOUT" ]]; then
+  echo "---> INFO: Deploy timeout set to default of 900 seconds"
+else
+  echo "---> INFO: Deploy timeout set to ${DEPLOY_TIMEOUT} seconds";
+fi
+
 envsubst < task-definition.tpl.json > task-definition.json
 echo "---> Task Definition"
 cat task-definition.json
@@ -22,7 +28,7 @@ export TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://./tas
 envsubst < app-spec.tpl.json > app-spec.json
 echo "---> App-spec for CodeDeploy"
 cat app-spec.json
-
+echo
 echo "---> Creating deployment with CodeDeploy"
 
 set +e # disable bash exit on error
@@ -62,9 +68,18 @@ done
 
 echo "---> Deployment created!"
 
+DEPLOY_TIMEOUT_PERIOD=0
+DEPLOY_TIMEOUT_REACHED=0
+
 while [ "$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)" == "InProgress" ]
 do
+  if [ "$DEPLOY_TIMEOUT_PERIOD" -ge "${DEPLOY_TIMEOUT:-900}" ]; then
+    echo "---> WARNING: Timeout reached. Rolling back deployment..."
+    aws deploy stop-deployment --deployment-id $DEPLOYMENT_ID --auto-rollback-enabled
+    DEPLOY_TIMEOUT_REACHED=1
+  fi
   sleep 1
+  DEPLOY_TIMEOUT_PERIOD=$((DEPLOY_TIMEOUT_PERIOD + 1))
 done
 
 TASK_SET_ID=$(aws ecs describe-services --cluster $CLUSTER_NAME --service $APP_NAME --query "services[0].taskSets[?status == 'ACTIVE'].id" --output text)
@@ -94,16 +109,16 @@ done
 DEPLOYMENT_STATUS=$(aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query deploymentInfo.status --output text)
 echo "---> Deployment status: $DEPLOYMENT_STATUS"
 
-if [ "$DEPLOYMENT_STATUS" == "Failed" ] && [ "$TASK_SET_ID" != "" ]
+if [ "$DEPLOYMENT_STATUS" == "Failed" ] || [ "$DEPLOYMENT_STATUS" == "Stopped" ]
 then
-  TASK_ARN=$(aws ecs list-tasks --cluster dev --desired-status STOPPED --started-by $TASK_SET_ID --query taskArns[0] --output text)
-  if [ "${TASK_ARN}" != "None" ]; then
-    echo "---> Displaying logs of STOPPED task: $TASK_ARN"
-    /work/tail-task-logs.py $TASK_ARN
+  if [ "$TASK_SET_ID" != "" ]
+  then
+    TASK_ARN=$(aws ecs list-tasks --cluster $CLUSTER_NAME --desired-status STOPPED --started-by $TASK_SET_ID --query taskArns[0] --output text)
+    if [ "${TASK_ARN}" != "None" ]; then
+      echo "---> Displaying logs of STOPPED task: $TASK_ARN"
+      /work/tail-task-logs.py $TASK_ARN
+    fi
   fi
-  RET=1
-elif [ "$DEPLOYMENT_STATUS" == "Stopped" ]
-then
   RET=1
 elif [ "$DEPLOYMENT_STATUS" == "Succeeded" ]
 then
@@ -113,6 +128,9 @@ fi
 if [ $RET -eq 0 ]; then
   echo "---> Completed!"
 else
+  if [ $DEPLOY_TIMEOUT_REACHED -eq 1 ]; then
+    echo "---> Deploy timeout reached and rollback triggered."
+  fi
   echo "---> ERROR: Deployment FAILED!"
 fi
 

@@ -13,9 +13,17 @@ task_id=task_arn.split(":task/",1)[1]  #get the task number id
 last_event = None
 log_group_name='/ecs/'+cluster_name+'/'+app_name
 
+log_streams = logs.describe_log_streams(logGroupName=log_group_name, orderBy='LastEventTime', limit=1)
+
+if len(log_streams['logStreams']) == 0:
+  print("No log streams found for log group %s" % log_group_name)
+  exit(1)
+
+log_stream_prefix='/'.join(log_streams['logStreams'][0]['logStreamName'].split('/')[:-1])
+
 extra_args = {
   'logGroupName': log_group_name,
-  'logStreamName': app_name+'/'+app_name+'/'+task_id,
+  'logStreamName': log_stream_prefix+'/'+task_id,
   'startFromHead': True
 }
 
