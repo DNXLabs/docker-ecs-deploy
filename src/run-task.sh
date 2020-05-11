@@ -46,8 +46,8 @@ TASK_STATUS=$(aws ecs describe-tasks \
   --output=text)
 echo "---> Task ID $TASK_ID"
 echo "---> Task Status $TASK_STATUS"
-export TASK_ID=$TASK_ID
-./tail-task-logs.py
+
+./tail-task-logs.py $TASK_ID
 
 # Discovery the Container Retunr status after the run-task
 CONTAINER_EXIT_CODE=$(aws ecs describe-tasks \
