@@ -37,15 +37,14 @@ TASK_ID=$(aws ecs run-task \
   --query="tasks[0].taskArn" \
   --output=text)
 
-# sleep 5
+sleep 5
 
-TASK_STATUS=$(aws ecs describe-tasks \
-  --tasks $TASK_ID \
-  --cluster $CLUSTER_NAME \
-  --query="tasks[0].lastStatus" \
-  --output=text)
+while [ "$(aws ecs describe-tasks --tasks $TASK_ID --cluster $CLUSTER_NAME --query="tasks[0].lastStatus" --output=text)" == "PENDING" ]
+do
+  sleep 1
+done
+
 echo "---> Task ID $TASK_ID"
-echo "---> Task Status $TASK_STATUS"
 
 ./tail-task-logs.py $TASK_ID
 

@@ -53,9 +53,10 @@ while True:
           print("Stop Code:      %s" % response['tasks'][0]['stopCode'])
         print("")
         break
-      time.sleep(1)
     else: 
       extra_args['nextToken'] = log_stream_events['nextForwardToken']
+    
+    time.sleep(1)
 
   except Exception as e:
     print("Error: " + str(e))
