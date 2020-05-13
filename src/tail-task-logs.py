@@ -13,7 +13,7 @@ task_id=task_arn.split(":task/",1)[1]  #get the task number id
 last_event = None
 log_group_name='/ecs/'+cluster_name+'/'+app_name
 
-log_streams = logs.describe_log_streams(logGroupName=log_group_name, orderBy='LastEventTime', limit=1)
+log_streams = logs.describe_log_streams(logGroupName=log_group_name, orderBy='LastEventTime', descending=True, limit=1)
 
 if len(log_streams['logStreams']) == 0:
   print("No log streams found for log group %s" % log_group_name)
@@ -57,6 +57,10 @@ while True:
       extra_args['nextToken'] = log_stream_events['nextForwardToken']
     
     time.sleep(1)
+
+  except logs.exceptions.ResourceNotFoundException as e:
+    time.sleep(5)
+    continue
 
   except Exception as e:
     print("Error: " + str(e))
