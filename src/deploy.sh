@@ -19,6 +19,14 @@ else
   echo "---> INFO: Deploy timeout set to ${DEPLOY_TIMEOUT} seconds";
 fi
 
+DEPLOY_CONCURRENCY_MODE=${DEPLOY_CONCURRENCY_MODE:-fail}
+if [[ "$DEPLOY_CONCURRENCY_MODE" == "wait" ]]
+then
+  echo "---> INFO: Deploy concurrency mode set to 'wait' a previous deployment to finish before continuing"
+else
+  echo "---> INFO: Deploy concurrency mode set to 'fail'"
+fi
+
 envsubst < task-definition.tpl.json > task-definition.json
 echo "---> Task Definition"
 cat task-definition.json
@@ -33,26 +41,37 @@ echo "---> Creating deployment with CodeDeploy"
 
 set +e # disable bash exit on error
 
-# # Update the ECS service to use the updated Task version
-DEPLOYMENT_ID=$(aws deploy create-deployment \
-  --application-name $CLUSTER_NAME-$APP_NAME \
-  --deployment-config-name CodeDeployDefault.ECSAllAtOnce \
-  --deployment-group-name $CLUSTER_NAME-$APP_NAME \
-  --description Deployment \
-  --revision file://app-spec.json \
-  --query="deploymentId" --output text)
+DEPLOY_TIMEOUT_PERIOD=0
 
-# In case there is already a deployment in progress, script will fail  
-if [ $? -eq 255 ]; then
-  echo
-  echo
-  echo "===> Deployment already in progress. Please approve current deployment before performing a new deployment"
-  echo
-  echo
-  exit 1
-fi
+while [ "${DEPLOYMENT_ID}" == "" ]
+do
+  if [ "$DEPLOY_TIMEOUT_PERIOD" -ge "${DEPLOY_TIMEOUT:-900}" ]; then
+    echo "===> Timeout reached trying to create deployment. Exiting"
+    exit 1
+  fi
 
-sleep 5 # Wait for deployment to be created
+  DEPLOYMENT_ID=$(aws deploy create-deployment \
+    --application-name $CLUSTER_NAME-$APP_NAME \
+    --deployment-config-name CodeDeployDefault.ECSAllAtOnce \
+    --deployment-group-name $CLUSTER_NAME-$APP_NAME \
+    --description Deployment \
+    --revision file://app-spec.json \
+    --query="deploymentId" --output text)
+
+  if [ $? -eq 255 ] && [ "${DEPLOY_CONCURRENCY_MODE}" == "fail" ]
+  then
+    # In case there is already a deployment in progress, script will fail  
+    echo
+    echo
+    echo "===> Deployment already in progress for this application environment. Please approve or rollback current deployment before performing a new deployment"
+    echo
+    echo
+    exit 1
+  fi
+  
+  sleep 10 # Wait until deployment is created
+  DEPLOY_TIMEOUT_PERIOD=$((DEPLOY_TIMEOUT_PERIOD + 10))
+done
 
 echo "---> For more info: https://$AWS_DEFAULT_REGION.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID"
 
