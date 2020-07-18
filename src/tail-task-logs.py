@@ -12,20 +12,9 @@ task_arn=sys.argv[1]
 task_id=task_arn.split(":task/",1)[1]  #get the task number id
 last_event = None
 log_group_name='/ecs/'+cluster_name+'/'+app_name
+log_stream_prefix = None
 
-log_streams = logs.describe_log_streams(logGroupName=log_group_name, orderBy='LastEventTime', descending=True, limit=1)
-
-if len(log_streams['logStreams']) == 0:
-  print("No log streams found for log group %s" % log_group_name)
-  exit(1)
-
-log_stream_prefix='/'.join(log_streams['logStreams'][0]['logStreamName'].split('/')[:-1])
-
-extra_args = {
-  'logGroupName': log_group_name,
-  'logStreamName': log_stream_prefix+'/'+task_id,
-  'startFromHead': True
-}
+print("     Waiting for logs...")
 
 while True:
   try:
@@ -34,28 +23,41 @@ while True:
       tasks=[task_arn])
     task_status = response['tasks'][0]['lastStatus']
 
-    log_stream_events = logs.get_log_events(**extra_args)
+    if log_stream_prefix is None:
+      log_streams = logs.describe_log_streams(logGroupName=log_group_name, orderBy='LastEventTime', descending=True, limit=1)
 
-    for event in log_stream_events['events']:
-      print("%s" % (event['message']))
+      if len(log_streams['logStreams']) != 0:
+        log_stream_prefix='/'.join(log_streams['logStreams'][0]['logStreamName'].split('/')[:-1])
+        extra_args = {
+          'logGroupName': log_group_name,
+          'logStreamName': log_stream_prefix+'/'+task_id,
+          'startFromHead': True
+        }
 
-    if 'nextToken' in extra_args and log_stream_events['nextForwardToken'] == extra_args['nextToken']:
-      if task_status == "STOPPED":
-        print("======== TASK STOPPED ========")
-        print("Task ID:        %s" % task_id)
-        print("Task ARN:       %s" % task_arn)
-        print("Service Name:   %s" % app_name)
-        print("Cluster Name:   %s" % cluster_name)
+    else:
+      log_stream_events = logs.get_log_events(**extra_args)
+
+      for event in log_stream_events['events']:
+        print("%s" % (event['message']))
+
+      if 'nextToken' not in extra_args or log_stream_events['nextForwardToken'] != extra_args['nextToken']:
+        extra_args['nextToken'] = log_stream_events['nextForwardToken']
+
+    if task_status == "STOPPED":
+      print("======== TASK STOPPED ========")
+      print("Task ID:        %s" % task_id)
+      print("Task ARN:       %s" % task_arn)
+      print("Service Name:   %s" % app_name)
+      print("Cluster Name:   %s" % cluster_name)
+      if 'startedAt' in response['tasks'][0]:
         print("Started at:     %s" % response['tasks'][0]['startedAt'])
-        print("Stopped at:     %s" % response['tasks'][0]['stoppedAt'])
-        print("Stopped Reason: %s" % response['tasks'][0]['stoppedReason'])
-        if 'stopCode' in response['tasks'][0]:
-          print("Stop Code:      %s" % response['tasks'][0]['stopCode'])
-        print("")
-        break
-    else: 
-      extra_args['nextToken'] = log_stream_events['nextForwardToken']
-    
+      print("Stopped at:     %s" % response['tasks'][0]['stoppedAt'])
+      print("Stopped Reason: %s" % response['tasks'][0]['stoppedReason'])
+      if 'stopCode' in response['tasks'][0]:
+        print("Stop Code:      %s" % response['tasks'][0]['stopCode'])
+      print("")
+      break
+
     time.sleep(1)
 
   except logs.exceptions.ResourceNotFoundException as e:

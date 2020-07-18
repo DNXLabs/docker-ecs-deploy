@@ -44,7 +44,7 @@ do
   sleep 1
 done
 
-echo "---> Task ID $TASK_ID"
+echo "---> Task ARN $TASK_ID"
 
 ./tail-task-logs.py $TASK_ID
 
@@ -54,14 +54,15 @@ CONTAINER_EXIT_CODE=$(aws ecs describe-tasks \
   --cluster $CLUSTER_NAME \
   --query="tasks[0].containers[0].exitCode" \
   --output=text)
-echo "---> Task Exit Code $CONTAINER_EXIT_CODE"  
+echo "---> Task Exit Code: $CONTAINER_EXIT_CODE"  
 RET=$CONTAINER_EXIT_CODE
 
 
-if [ $RET -eq 0 ]; then
+if [ "$RET" = "0" ]; then
   echo "---> TaskStatus completed!"
 else
   echo "---> ERROR: TaskStatus FAILED!"
+  RET=1
 fi
 
 exit $RET
