@@ -1,0 +1,18 @@
+version: '3.4'
+
+services:
+  app:
+    build: .
+    volumes:
+      - .:/work
+    environment:
+      - AWS_ACCESS_KEY_ID
+      - AWS_ACCOUNT_ID
+      - AWS_DEFAULT_REGION
+      - AWS_ROLE
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SECURITY_TOKEN
+      - AWS_SESSION_EXPIRATION
+      - AWS_SESSION_TOKEN
+    entrypoint: ""
+    command: /bin/bash

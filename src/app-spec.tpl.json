@@ -1,17 +1,6 @@
 {
-  "version": 0.0,
-  "Resources": [
-    {
-      "TargetService": {
-        "Type": "AWS::ECS::Service",
-        "Properties": {
-          "TaskDefinition": "$TASK_ARN",
-          "LoadBalancerInfo": {
-            "ContainerName": "$APP_NAME",
-            "ContainerPort": $CONTAINER_PORT
-          }
-        }
-      }
-    }
-  ]
+  "revisionType": "AppSpecContent",
+  "appSpecContent": {
+    "content": "{\"version\":1,\"Resources\":[{\"TargetService\":{\"Type\":\"AWS::ECS::Service\",\"Properties\":{\"TaskDefinition\":\"$TASK_ARN\",\"LoadBalancerInfo\":{\"ContainerName\":\"$APP_NAME\",\"ContainerPort\":$CONTAINER_PORT}}}}]}"
+  }
 }

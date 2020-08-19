@@ -37,17 +37,16 @@ TASK_ID=$(aws ecs run-task \
   --query="tasks[0].taskArn" \
   --output=text)
 
-# sleep 5
+sleep 5
 
-TASK_STATUS=$(aws ecs describe-tasks \
-  --tasks $TASK_ID \
-  --cluster $CLUSTER_NAME \
-  --query="tasks[0].lastStatus" \
-  --output=text)
-echo "---> Task ID $TASK_ID"
-echo "---> Task Status $TASK_STATUS"
-export TASK_ID=$TASK_ID
-./tail-task-logs.py
+while [ "$(aws ecs describe-tasks --tasks $TASK_ID --cluster $CLUSTER_NAME --query="tasks[0].lastStatus" --output=text)" == "PENDING" ]
+do
+  sleep 1
+done
+
+echo "---> Task ARN $TASK_ID"
+
+./tail-task-logs.py $TASK_ID
 
 # Discovery the Container Retunr status after the run-task
 CONTAINER_EXIT_CODE=$(aws ecs describe-tasks \
@@ -55,14 +54,15 @@ CONTAINER_EXIT_CODE=$(aws ecs describe-tasks \
   --cluster $CLUSTER_NAME \
   --query="tasks[0].containers[0].exitCode" \
   --output=text)
-echo "---> Task Exit Code $CONTAINER_EXIT_CODE"  
+echo "---> Task Exit Code: $CONTAINER_EXIT_CODE"  
 RET=$CONTAINER_EXIT_CODE
 
 
-if [ $RET -eq 0 ]; then
+if [ "$RET" = "0" ]; then
   echo "---> TaskStatus completed!"
 else
   echo "---> ERROR: TaskStatus FAILED!"
+  RET=1
 fi
 
 exit $RET
