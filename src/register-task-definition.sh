@@ -26,4 +26,6 @@ TASK_ARN=$(aws ecs register-task-definition \
   --query="taskDefinition.taskDefinitionArn" \
   --output=text)
 
+echo "---> Task Definition ARN: ${TASK_ARN}"
+
 exit
