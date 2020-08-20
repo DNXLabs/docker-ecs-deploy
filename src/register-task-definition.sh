@@ -26,9 +26,4 @@ TASK_ARN=$(aws ecs register-task-definition \
   --query="taskDefinition.taskDefinitionArn" \
   --output=text)
 
-echo "---> Executing  ECS Task"
-echo "       CLUSTER_NAME: ${CLUSTER_NAME}"
-echo "       APP_NAME: ${APP_NAME}"
-echo "       TASK_ARN: ${TASK_ARN}"
-
 exit
