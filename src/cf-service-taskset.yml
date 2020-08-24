@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: ECS Cluster Application TaskSet (rev:1)
+
+Parameters:
+  Name:
+    Type: String
+    Description: Name of this Application
+    ConstraintDescription: Must be DNS friendly
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9\-]+$
+  ClusterName:
+    Type: String
+    Description: Name of the ECS cluster to use
+    ConstraintDescription: Must be DNS friendly
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9\-]+$
+  TaskDefinitionArn:
+    Type: String
+    Description: Task Definition ARN to use in this task set
+  ContainerPort:
+    Type: Number
+    Description: Port the container listens
+  Color:
+    Type: String
+    Description: Color to identify this task set
+    AllowedValues:
+      - Green
+      - Blue
+
+Resources:
+  EcsTaskSet:
+    Type: AWS::ECS::TaskSet
+    Properties:
+      Cluster: !Ref ClusterName
+      LoadBalancers:
+        - ContainerName: !Ref Name
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: 
+            Fn::ImportValue: !Sub "ecs-app-${ClusterName}-${Name}-AlbTargetGroup${Color}"
+      Scale:
+        Value: 100
+        Unit: PERCENT
+      Service: !Ref Name
+      TaskDefinition: !Ref TaskDefinitionArn
+
+Outputs:
+  EcsTaskSet:
+    Value: !Ref EcsTaskSet
+    Export:
+      Name: !Sub "${AWS::StackName}-EcsTaskSet"
