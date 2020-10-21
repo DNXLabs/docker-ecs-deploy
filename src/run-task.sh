@@ -27,10 +27,10 @@ TASK_ARN=$(aws ecs register-task-definition \
   --output=text)
 
 echo "---> Executing  ECS Task"
-echo "       CLUSTER_NAME: ${CLUSTER_NAME}"
-echo "       APP_NAME: ${APP_NAME}"
-echo "       TASK_ARN: ${TASK_ARN}"
-
+echo "     CLUSTER_NAME: ${CLUSTER_NAME}"
+echo "     APP_NAME: ${APP_NAME}"
+echo "     TASK_DEFINITION_ARN: ${TASK_ARN}"
+echo -n "     STATUS: "
 TASK_ID=$(aws ecs run-task \
   --cluster $CLUSTER_NAME \
   --task-definition $TASK_ARN \
@@ -41,8 +41,11 @@ sleep 5
 
 while [ "$(aws ecs describe-tasks --tasks $TASK_ID --cluster $CLUSTER_NAME --query="tasks[0].lastStatus" --output=text)" == "PENDING" ]
 do
-  sleep 1
+  echo -n "."
+  sleep 5
 done
+echo -n "RUNNING"
+echo
 
 echo "---> Task ARN $TASK_ID"
 
