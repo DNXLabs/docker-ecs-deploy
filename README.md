@@ -1,5 +1,8 @@
 # docker-ecs-deploy
 
+![Security](https://github.com/DNXLabs/docker-ecs-deploy/workflows/Security/badge.svg)
+![Lint](https://github.com/DNXLabs/docker-ecs-deploy/workflows/Lint/badge.svg)
+
 This container is used to assist deployments to ECS using CodeDeploy.
 
 ## Usage
