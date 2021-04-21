@@ -238,6 +238,7 @@ TASK_SET_ID=""
 
 while [ "${TASK_SET_ID}" == "" ]; do
   TASK_SET_ID=$(aws ecs describe-services --cluster $CLUSTER_NAME --service $APP_NAME --query "services[0].taskSets[?status == 'ACTIVE'].id" --output text)
+  sleep 1
 done
 
 info "Task Set ID: $TASK_SET_ID"
@@ -253,6 +254,7 @@ fi
 
 h2 "Monitoring ECS service events for cluster ($CLUSTER_NAME) on service ($APP_NAME):"
 /work/tail-ecs-events.py & TAIL_ECS_EVENTS_PID=$!
+printf "\n"
 
 while :
   do
