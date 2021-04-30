@@ -1,6 +1,6 @@
 FROM dnxsolutions/aws:2.1.9-dnx1
 
-ADD src .
+COPY src .
 
 RUN chmod +x *.sh *.py
 
