@@ -227,7 +227,6 @@ note "For more info, you can follow your deployment at: https://$AWS_DEFAULT_REG
 # ----- Monitor Deployment -----
 h1 "Step 6: Deployment Overview"
 
-DEPLOY_TIMEOUT=
 DEPLOY_TIMEOUT_PERIOD=0
 
 DEPLOYMENT_GET="aws deploy get-deployment --output json --deployment-id \"$DEPLOYMENT_ID\""

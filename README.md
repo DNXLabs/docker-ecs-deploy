@@ -5,6 +5,13 @@
 
 This container is used to assist deployments to ECS using CodeDeploy.
 
+## Parameters
+Variables must be set in the environment system level.
+
+|Variable|Type|Description|Default|
+|---|---|---|---|
+|DEPLOY_TIMEOUT|Integer|Timeout in seconds for deployment|900|
+|AWS_CODE_DEPLOY_OUTPUT_STATUS_LIVE|Boolean|If the environment supports live reloading use carriage returns for a single line|True|
 ## Usage
 
 Inside your application repository, create the following files:
