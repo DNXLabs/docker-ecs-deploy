@@ -171,7 +171,7 @@ success "Variables ok"
 h1 "Step 2: Replace variables inside of task-definition.tpl.json"
 runCommand "envsubst < task-definition.tpl.json > task-definition.json" \
             "Create task definition file failed" \
-            "Create task definition file" 
+            "Create task definition file"
 
 isjsonValid "task-definition.json"
 info "Task definition file:"
@@ -182,7 +182,7 @@ h1 "Step 3: Registering task definition"
 runCommand "aws ecs register-task-definition --cli-input-json file://./task-definition.json" \
             "Register task definition failed" \
             "Register task definition" \
-            OUTPUT_TASK_ARN 
+            OUTPUT_TASK_ARN
 
 OUTPUT_TASK_ARN=$(echo $OUTPUT_TASK_ARN | jq --raw-output '.taskDefinition.taskDefinitionArn')
 export TASK_ARN=$OUTPUT_TASK_ARN
@@ -308,7 +308,7 @@ while :
       exit 1
     fi
 
-    if [ "$STATUS" == "Stopped" ]; then     
+    if [ "$STATUS" == "Stopped" ]; then
       warnNotice "Deployment stopped by user"
       info "$ERROR_MESSAGE"
       exit 1
@@ -318,7 +318,7 @@ while :
       success "Deployment of application \"$APPLICATION_NAME\" on deployment group \"$DEPLOYMENT_GROUP\" ready and waiting for cutover"
       break
     fi
-    
+
     if [ "$STATUS" == "Succeeded" ]; then
       success "Deployment of application \"$APPLICATION_NAME\" on deployment group \"$DEPLOYMENT_GROUP\" succeeded"
       break
