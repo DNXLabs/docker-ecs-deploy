@@ -1,12 +1,6 @@
-FROM dnxsolutions/aws:1.17.14-dnx3
+FROM dnxsolutions/aws:2.1.9-dnx1
 
-RUN apk --no-cache update && \
-    apk --no-cache add python3 && \
-    rm -rf /var/cache/apk/*
-
-RUN pip3 install --no-cache --upgrade boto3
-
-ADD src .
+COPY src .
 
 RUN chmod +x *.sh *.py
 
