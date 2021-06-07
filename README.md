@@ -5,6 +5,13 @@
 
 This container is used to assist deployments to ECS using CodeDeploy.
 
+## Parameters
+Variables must be set in the environment system level.
+
+|Variable|Type|Description|Default|
+|---|---|---|---|
+|DEPLOY_TIMEOUT|Integer|Timeout in seconds for deployment|900|
+|AWS_CODE_DEPLOY_OUTPUT_STATUS_LIVE|Boolean|If the environment supports live reloading use carriage returns for a single line|True|
 ## Usage
 
 Inside your application repository, create the following files:
@@ -83,3 +90,9 @@ docker-compose run --rm deploy
 This container is made to be used with our terraform modules:
 - <https://github.com/DNXLabs/terraform-aws-ecs>
 - <https://github.com/DNXLabs/terraform-aws-ecs-app>
+
+## NOTES - Old Versions
+
+### 1.x.x
+The 1.x.x branch is responsible for the old version, if you have any updates or want to fix a bug, please use this branch.
+Be aware when creating a new version, if you change something in 1.x.x, make sure the release must be under the same umbrella.
