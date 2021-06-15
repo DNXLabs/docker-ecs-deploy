@@ -1,8 +1,8 @@
 FROM dnxsolutions/aws:2.1.9-dnx1
 
-COPY src .
+WORKDIR /work
 
-RUN chmod +x *.sh *.py
+COPY src .
 
 ENTRYPOINT [ "/bin/bash", "-c" ]
 
