@@ -37,7 +37,7 @@ if [[ "$SERVICE_TYPE" == "FARGATE" ]]; then
 TASK_ID=$(aws ecs run-task \
   --cluster $CLUSTER_NAME \
   --task-definition $TASK_ARN \
-  --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}]" \
+  --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}]}" \
   --launch-type FARGATE \
   --query="tasks[0].taskArn" \
   --output=text)
