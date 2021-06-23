@@ -33,7 +33,7 @@ echo "     TASK_DEFINITION_ARN: ${TASK_ARN}"
 echo -n "     STATUS: "
 
 # Check if cluster type is fargate
-if [[ "$SERVICE_TYPE" == "FARGARTE" ]]; then
+if [[ "$SERVICE_TYPE" == "FARGATE" ]]; then
 TASK_ID=$(aws ecs run-task \
   --cluster $CLUSTER_NAME \
   --task-definition $TASK_ARN \
