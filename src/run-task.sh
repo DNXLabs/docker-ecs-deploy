@@ -31,11 +31,23 @@ echo "     CLUSTER_NAME: ${CLUSTER_NAME}"
 echo "     APP_NAME: ${APP_NAME}"
 echo "     TASK_DEFINITION_ARN: ${TASK_ARN}"
 echo -n "     STATUS: "
+
+# Check if cluster type is fargate
+if [[ "$SERVICE_TYPE" == "FARGARTE" ]]; then
+TASK_ID=$(aws ecs run-task \
+  --cluster $CLUSTER_NAME \
+  --task-definition $TASK_ARN \
+  --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}]" \
+  --launch-type FARGATE \
+  --query="tasks[0].taskArn" \
+  --output=text)
+else
 TASK_ID=$(aws ecs run-task \
   --cluster $CLUSTER_NAME \
   --task-definition $TASK_ARN \
   --query="tasks[0].taskArn" \
   --output=text)
+ fi
 
 sleep 5
 

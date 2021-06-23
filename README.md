@@ -36,6 +36,13 @@ DB_PASSWORD=
 DB_NAME=
 ```
 
+If the service type is **Fargate**, nad you're using the `run-task.sh` script, please include:
+```bash
+SERVICE_TYPE=FARGATE
+SUBNETS_ID=subnet1231231,subnet123123123,subnter123123123123
+```
+Default values are: null
+
 `task-definition.tpl.json` (example)
 ```json
 {
