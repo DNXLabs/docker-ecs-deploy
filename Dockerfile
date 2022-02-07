@@ -1,4 +1,4 @@
-FROM dnxsolutions/aws:2.1.9-dnx1
+FROM dnxsolutions/aws:1.22.48
 
 WORKDIR /work
 
