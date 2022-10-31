@@ -188,6 +188,10 @@ OUTPUT_TASK_ARN=$(echo $OUTPUT_TASK_ARN | jq --raw-output '.taskDefinition.taskD
 export TASK_ARN=$OUTPUT_TASK_ARN
 
 # ----- Create app spec file -----
+if [ ! -z "$CAPACITY_PROVIDER_STRATEGY" ]; then
+  CAPACITY_PROVIDER_STRATEGY=',\"CapacityProviderStrategy\":['${CAPACITY_PROVIDER_STRATEGY}']'
+fi
+
 h1 "Step 4: Creating App Spec for CodeDeploy"
 runCommand "envsubst < app-spec.tpl.json > app-spec.json" \
             "Create app-spec file failed" \
