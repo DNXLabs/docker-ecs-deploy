@@ -84,6 +84,17 @@ Default values are: null
 }
 ```
 
+if the the launch type is FARGATE_SPOT you must define `CAPACITY_PROVIDER_STRATEGY` variable in your `.env` file
+
+The Capacity Provider Strategy property specifies the details of the default capacity provider strategy for the cluster. When services or tasks are run in the cluster with no launch type or capacity provider strategy specified, the default capacity provider strategy is used. [more](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-clustercapacityproviderassociations-capacityproviderstrategy.html)
+
+sample:
+```
+CAPACITY_PROVIDER_STRATEGY?={'Base':0,'CapacityProvider':'FARGATE_SPOT','Weight':1} 
+```
+
+## Run
+
 Run the service to deploy:
 ```
 docker-compose run --rm deploy
