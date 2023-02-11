@@ -13,13 +13,17 @@ task_id=task_arn.split("/")[-1]  #get the task number id (without the cluster na
 last_event = None
 log_group_name='/ecs/'+cluster_name+'/'+app_name
 log_stream_prefix = None
+log_stream_events = None
 
 print("======== TASK LOGS ========")
 
 while True:
   try:
     if log_stream_prefix is None:
-      log_streams = logs.describe_log_streams(logGroupName=log_group_name, orderBy='LastEventTime', descending=True, limit=1)
+      try:
+        log_streams = logs.describe_log_streams(logGroupName=log_group_name, orderBy='LastEventTime', descending=True, limit=1)
+      except:
+        raise Exception("The specified log group does not exist")
 
       if len(log_streams['logStreams']) != 0:
         log_stream_prefix='/'.join(log_streams['logStreams'][0]['logStreamName'].split('/')[:-1])
@@ -29,18 +33,22 @@ while True:
           'startFromHead': True
         }
     else:
-      log_stream_events = logs.get_log_events(**extra_args)
+      try:
+        log_stream_events = logs.get_log_events(**extra_args)
+       
+        for event in log_stream_events['events']:
+          print("%s" % (event['message']))
 
-      for event in log_stream_events['events']:
-        print("%s" % (event['message']))
-
-      if 'nextToken' not in extra_args or log_stream_events['nextForwardToken'] != extra_args['nextToken']:
-        extra_args['nextToken'] = log_stream_events['nextForwardToken']
-
+        if 'nextToken' not in extra_args or log_stream_events['nextForwardToken'] != extra_args['nextToken']:
+          extra_args['nextToken'] = log_stream_events['nextForwardToken']  
+      
+      except:
+        print('No logs sent to CloudWatch')
+       
       response = aws_ecs.describe_tasks(
         cluster=cluster_name,
         tasks=[task_arn])
-
+        
       if response['tasks'][0]['lastStatus'] == "STOPPED":
         print("======== TASK STOPPED ========")
         print("Task ID:        %s" % task_id)
