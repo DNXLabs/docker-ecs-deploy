@@ -5,6 +5,8 @@
 
 This container is used to assist deployments to ECS using CodeDeploy.
 
+Repository URL: https://github.com/DNXLabs/docker-ecs-deploy
+
 ## Parameters
 Variables must be set in the environment system level.
 
