@@ -1,18 +1,43 @@
 version: '3.4'
-
 services:
-  app:
+  deploy:
     build: .
+    image: public.ecr.aws/dnxsolutions/ecs-deploy:latest
+    env_file:
+      - .env
     volumes:
-      - .:/work
-    environment:
-      - AWS_ACCESS_KEY_ID
-      - AWS_ACCOUNT_ID
-      - AWS_DEFAULT_REGION
-      - AWS_ROLE
-      - AWS_SECRET_ACCESS_KEY
-      - AWS_SECURITY_TOKEN
-      - AWS_SESSION_EXPIRATION
-      - AWS_SESSION_TOKEN
-    entrypoint: ""
-    command: /bin/bash
+      - ./templates/task-definition.tpl-default.json:/work/task-definition.tpl.json
+
+  cutover:
+    build: .
+    image: public.ecr.aws/dnxsolutions/ecs-deploy:latest
+    env_file:
+      - .env
+    command: /work/deploy-cutover.py
+
+  run-task:
+    build: .
+    image: public.ecr.aws/dnxsolutions/ecs-deploy:latest
+    env_file:
+      - .env
+    command: /work/run-task.py
+    volumes:
+      - ./templates/task-definition.tpl-default.json:/work/task-definition.tpl.json
+
+  worker-deploy:
+    build: .
+    image: public.ecr.aws/dnxsolutions/ecs-deploy:latest
+    env_file:
+      - .env
+    command: /work/worker-deploy.py
+    volumes:
+      - ./templates/task-definition.tpl-default.json:/work/task-definition.tpl.json
+
+  ecr-scan:
+    build: .
+    image: public.ecr.aws/dnxsolutions/ecs-deploy:latest
+    env_file:
+      - .env
+    command: /work/ecr-enhanced-scanning.py
+    volumes:
+      - ./templates/task-definition.tpl-default.json:/work/task-definition.tpl.json

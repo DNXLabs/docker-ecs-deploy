@@ -1,0 +1,35 @@
+{
+  "containerDefinitions": [
+    {
+      "essential": true,
+      "image": "${IMAGE_NAME}",
+      "command": ${DEFAULT_COMMAND},
+      "cpu": ${CPU},
+      "memory": ${MEMORY},
+      "memoryReservation": ${MEMORY},
+      "name": "${APP_NAME}",
+      "portMappings": [
+        {
+          "containerPort": ${CONTAINER_PORT}
+        }
+      ],
+      "environment": [],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "splunk",
+        "options": {
+          "splunk-token": "placeholder",
+          "splunk-url": "placeholder"
+        }
+      }
+    }
+  ],
+  "family": "${CLUSTER_NAME}-${APP_NAME}",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecs-task-${CLUSTER_NAME}-${AWS_DEFAULT_REGION}",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecs-task-${CLUSTER_NAME}-${AWS_DEFAULT_REGION}",
+  "networkMode": "awsvpc",
+  "cpu": "${CPU}",
+  "memory": "${MEMORY}",
+  "requiresCompatibilities": [ "FARGATE" ]
+}

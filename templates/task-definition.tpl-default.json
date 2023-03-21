@@ -1,0 +1,32 @@
+{
+  "containerDefinitions": [
+    {
+      "essential": true,
+      "image": "${IMAGE_NAME}",
+      "command": ${DEFAULT_COMMAND},
+      "cpu": ${CPU},
+      "memory": ${MEMORY},
+      "memoryReservation": ${MEMORY},
+      "name": "${APP_NAME}",
+      "portMappings": [
+        {
+          "containerPort": ${CONTAINER_PORT}
+        }
+      ],
+      "environment": [],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+            "awslogs-group": "/ecs/${CLUSTER_NAME}/${APP_NAME}",
+            "awslogs-region": "${AWS_DEFAULT_REGION}",
+            "awslogs-stream-prefix": "${APP_NAME}"
+        }
+      }
+    }
+  ],
+  "family": "${CLUSTER_NAME}-${APP_NAME}",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecs-task-${CLUSTER_NAME}-${AWS_DEFAULT_REGION}",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecs-task-${CLUSTER_NAME}-${AWS_DEFAULT_REGION}"
+}

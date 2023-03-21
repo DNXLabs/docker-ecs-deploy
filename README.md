@@ -13,7 +13,9 @@ Variables must be set in the environment system level.
 |Variable|Type|Description|Default|
 |---|---|---|---|
 |DEPLOY_TIMEOUT|Integer|Timeout in seconds for deployment|900|
-|AWS_CODE_DEPLOY_OUTPUT_STATUS_LIVE|Boolean|If the environment supports live reloading use carriage returns for a single line|True|
+|TPL_FILE_NAME|Sring|Task definitions template json file name|task-definition.tpl.json|
+|APPSPEC_FILE_NAME|String|CodeDeploy App Spec|app-spec.tpl.json|
+|SEVERITY|List(space separated)|List of container vulnerability severity|CRITICAL HIGH|
 ## Usage
 
 Inside your application repository, create the following files:
@@ -34,55 +36,63 @@ Inside your application repository, create the following files:
 # Required variables
 APP_NAME=<ecs service name>
 CLUSTER_NAME=<ecs cluster name>
-IMAGE_NAME=<ecr image arn>
-CONTAINER_PORT=80
-AWS_DEFAULT_REGION=
+AWS_DEFAULT_REGION=<aws region>
+
+#ECR Scanning
+BUILD_VERSION=<image tag>
+APP_NAME=<repo name>
+AWS_DEFAULT_REGION=<aws region>
+ECR_ACCOUNT=<aws ecr account number>
 
 # App-specific variables (as used on task-definition below)
-DB_HOST=
-DB_USER=
-DB_PASSWORD=
-DB_NAME=
+IMAGE_NAME=<image name and tag>
+CPU=<cpu amount>
+MEMORY=<memory amount>
+CONTAINER_PORT=<container port>
+DEFAULT_COMMAND=<container command e.g. ["echo", "test"]>
+AWS_ACCOUNT_ID=<aws account number>
 ```
 
-If the service type is **Fargate**, and you're using the `run-task.sh` script, please include:
+If the service type is **Fargate** please include:
 ```bash
 SERVICE_TYPE=FARGATE
-SUBNETS=subnet1231231,subnet123123123,subnter123123123123
+SUBNETS=subnet-12345abcd,subnet-a1b2c3d4,subnet-abcd12345
+SECURITY_GROUPS=sg-a1b2c3d4e5,sg-12345abcd
 ```
-Default values are: null
 
-`task-definition.tpl.json` (example)
-```json
+`task-definition.tpl.json` (see [templates](./templates/))
+```yaml
 {
   "containerDefinitions": [
     {
       "essential": true,
       "image": "${IMAGE_NAME}",
-      "memoryReservation": 512,
+      "command": ${DEFAULT_COMMAND},
+      "cpu": ${CPU},
+      "memory": ${MEMORY},
+      "memoryReservation": ${MEMORY},
       "name": "${APP_NAME}",
       "portMappings": [
         {
           "containerPort": ${CONTAINER_PORT}
         }
       ],
+      "environment": [],
+      "mountPoints": [],
+      "volumesFrom": [],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "ecs-${CLUSTER_NAME}-${APP_NAME}",
-          "awslogs-region": "ap-southeast-2",
-          "awslogs-stream-prefix": "web"
+            "awslogs-group": "/ecs/${CLUSTER_NAME}/${APP_NAME}",
+            "awslogs-region": "${AWS_DEFAULT_REGION}",
+            "awslogs-stream-prefix": "${APP_NAME}"
         }
-      },
-      "environment" : [
-        { "name" : "DB_HOST", "value" : "${WODB_HOST}" },
-        { "name" : "DB_USER", "value" : "${DB_USER}" },
-        { "name" : "DB_PASSWORD", "value" : "${DB_PASSWORD}" },
-        { "name" : "DB_NAME", "value" : "${DB_NAME}" }
-      ]
+      }
     }
   ],
-  "family": "${APP_NAME}"
+  "family": "${CLUSTER_NAME}-${APP_NAME}",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecs-task-${CLUSTER_NAME}-${AWS_DEFAULT_REGION}",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecs-task-${CLUSTER_NAME}-${AWS_DEFAULT_REGION}"
 }
 ```
 
@@ -92,20 +102,35 @@ The Capacity Provider Strategy property specifies the details of the default cap
 
 sample:
 ```
-CAPACITY_PROVIDER_STRATEGY?={'Base':0,'CapacityProvider':'FARGATE_SPOT','Weight':1} 
+CAPACITY_PROVIDER_STRATEGY={'Base':0,'CapacityProvider':'FARGATE_SPOT','Weight':1} 
 ```
 
 ## Run
 
-Run the service to deploy:
+[docker-compose.yml](./docker-compose.yml) examples
+
+Deploy a service: 
 ```
 docker-compose run --rm deploy
+docker-compose run --rm cutover
+```
+Run one time task such as db migration:
+```
+docker-compose run --rm run-task
+```
+Run a worker service (ECS deployment):
+```
+docker-compose run --rm worker-deploy
+```
+Get ECR Enhanced Scan report:
+```
+docker-compose run --rm ecr-scan
 ```
 
 ## Caveats
 
 - Make sure the log group specified in the task definition exists in Cloudwatch Logs
-- CodeDeploy Application and Deployment Group should exist and be called `$CLUSTER_NAME-$APP_NAME`
+- CodeDeploy Application name and Deployment Group should exist and be called `$CLUSTER_NAME-$APP_NAME`
 
 This container is made to be used with our terraform modules:
 - <https://github.com/DNXLabs/terraform-aws-ecs>
