@@ -1,14 +1,13 @@
-FROM dnxsolutions/aws:1.22.48-dnx2
+FROM dnxsolutions/aws:2.1.9-dnx1
 
 WORKDIR /work
 
 COPY src .
 
-# RUN apk add libcurl=7.79.1-r5 \
-#     && apk add curl=7.79.1-r5 \
-#     && apk add git=2.32.6-r0 \
-#     && apk add python3=3.9.16-r0 \
-#     && apk add python3-dev=3.9.16-r0
+RUN python3 -m pip install --no-cache-dir pip==23.1.2 \
+    && pip install --no-cache-dir awscli==1.27.142 \
+    && pip install --no-cache-dir botocore==1.29.142 \
+    && pip install --no-cache-dir boto3==1.26.142
 
 ENTRYPOINT [ "python3", "-u" ]
 
