@@ -169,3 +169,4 @@ if deploy.status == "Succeeded":
 if deployment_info.get('deploymentInfo', {}).get('errorInformation'):
     print('Deployment failed: %s' % deployment_info.get('deploymentInfo', {}).get('errorInformation', {}).get('code'))
     print('Error: %s' %  deployment_info.get('deploymentInfo', {}).get('errorInformation', {}).get('message'))
+    exit(1)
