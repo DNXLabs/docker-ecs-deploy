@@ -118,7 +118,16 @@ deploy_timeout = int(os.getenv('DEPLOYMENT_TIMEOUT', 900))
 # deploy.status
 deploy.get_deployment(deploy.deploymentId)
 
-while deploy.status in ['Created', 'InProgress']:
+def stop_deploy(deployment_id):
+    try:
+        deploy.stop_deployment(deployment_id)
+        print('Rollback deployment success')
+    except:
+        print('Rollback deployment failed')
+    finally:
+        exit(1)
+    
+while deploy.status in ['Created', 'InProgress', 'Queued']:
     # Tail logs from ECS service
     ecs_events = task.tail_ecs_events(cluster_name, app_name)
     for event in ecs_events:
@@ -133,24 +142,12 @@ while deploy.status in ['Created', 'InProgress']:
         
         if last_task_status == 'STOPPED':
             print('Containers are being stoped: %s' % last_task_reason)
-            try:
-                deploy.stop_deployment(deploy.deploymentId)
-                print('Rollback deployment success')
-            except:
-                print('Rollback deployment failed')
-            finally:
-                exit(1)
+            stop_deploy(deploy.deploymentId)
         
     # Rechead limit
     if deploy_timeout_period >= deploy_timeout:
         print('Deployment timeout: %s seconds' % deploy_timeout)
-        try:
-            deploy.stop_deployment(deploy.deploymentId)
-            print('Rollback deployment success')
-        except:
-            print('Rollback deployment failed')
-        finally:
-            exit(1)
+        stop_deploy(deploy.deploymentId)
         
     # Get status, increment limit and sleep
     deploy.get_deployment(deploy.deploymentId)
@@ -161,13 +158,14 @@ while deploy.status in ['Created', 'InProgress']:
 deployment_info = deploy.get_deployment(deploy.deploymentId)
 
 print()
-if deploy.status not in ['Ready', 'Succeeded']:
-    print('Deployment failed: %s' % deployment_info['deploymentInfo']['errorInformation']['code'])
-    print('Error: %s' %  deployment_info['deploymentInfo']['errorInformation']['message'])
-
 if deploy.status == "Ready":
     print('Deployment of application %s on deployment group %s ready and waiting for cutover' % (application_name, deployment_group))
-
+    exit(0)
+    
 if deploy.status == "Succeeded":
     print('Deployment of application %s on deployment group %s succeeded' % (application_name, deployment_group))
-    
+    exit(0)
+
+if deployment_info.get('deploymentInfo', {}).get('errorInformation'):
+    print('Deployment failed: %s' % deployment_info.get('deploymentInfo', {}).get('errorInformation', {}).get('code'))
+    print('Error: %s' %  deployment_info.get('deploymentInfo', {}).get('errorInformation', {}).get('message'))
