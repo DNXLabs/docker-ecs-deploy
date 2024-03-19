@@ -129,3 +129,7 @@ if 'exitCode' in running_task['tasks'][0]['containers'][0]:
     print('Exit code:      %s' %running_task['tasks'][0]['containers'][0]['exitCode'])
 if 'reason' in running_task['tasks'][0]['containers'][0]:
     print('Reason:         %s' %running_task['tasks'][0]['containers'][0]['reason'])
+
+# exit with task exit code
+if 'exitCode' in running_task['tasks'][0]['containers'][0]:
+    exit(running_task['tasks'][0]['containers'][0]['exitCode'])
