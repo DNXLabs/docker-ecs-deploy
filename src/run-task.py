@@ -23,7 +23,9 @@ launchtype = os.getenv("SERVICE_TYPE")
 subnets = os.getenv("SUBNETS")
 security_groups = os.getenv("SECURITY_GROUPS")
 task_def_file_name = os.getenv("TPL_FILE_NAME", "task-definition.tpl.json")
-container_overrides_json = os.getenv("CONTAINER_OVERRIDES")
+container_overrides_json = os.getenv(
+    "CONTAINER_OVERRIDES", '{"containerOverrides": []}'
+)
 env_vars = dict(os.environ)
 
 # ----- Create task definition file -----
@@ -36,6 +38,10 @@ except:
 
 print("Task definition file: \n%s" % task_definition)
 task_def = json.loads(task_definition)
+
+if container_overrides_json == "":
+    container_overrides_json = '{"containerOverrides": []}'
+print("Container Overrides: \n%s" % container_overrides_json)
 container_overrides = json.loads(container_overrides_json)
 
 # ----- Register task definition file -----
