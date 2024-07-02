@@ -1,4 +1,4 @@
-IMAGE_NAME ?= dnxsolutions/ecs-deploy:lucas-0.0.3
+IMAGE_NAME ?= dnxsolutions/ecs-deploy:latest
 
 .env:
 	cp .env.template .env
