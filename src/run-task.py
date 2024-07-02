@@ -33,7 +33,8 @@ print("Step 2: Replace variables inside of %s \n" % task_def_file_name)
 
 try:
     task_definition = json_template(task_def_file_name)
-except:
+except Exception as err:
+    print(f"Error building JSON template of task-definition. Error: '{err}'")
     exit(1)
 
 print("Task definition file: \n%s" % task_definition)

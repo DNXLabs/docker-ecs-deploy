@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import boto3
+from typing import List
 
 LAUNCH_TYPE_FARGATE = "FARGATE"
 
@@ -62,8 +63,8 @@ class EcsClient(object):
         cluster_name: str,
         task_definition,
         launchtype: str,
-        subnets: list[str],
-        security_groups: list[str],
+        subnets: List[str],
+        security_groups: List[str],
         container_overrides: object,
     ):
         if launchtype == LAUNCH_TYPE_FARGATE:
