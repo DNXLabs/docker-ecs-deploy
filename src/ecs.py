@@ -24,8 +24,7 @@ class EcsClient(object):
         )
 
     def describe_services(self, cluster_name, app_name):
-        result = self.boto.describe_services(
-            cluster=cluster_name, services=[app_name])
+        result = self.boto.describe_services(cluster=cluster_name, services=[app_name])
 
         if "taskSets" in result["services"][0]:
             for taskSet in result["services"][0]["taskSets"]:
@@ -45,8 +44,7 @@ class EcsClient(object):
         return result
 
     def describe_task_definition(self, task_definition):
-        result = self.boto.describe_task_definition(
-            taskDefinition=task_definition)
+        result = self.boto.describe_task_definition(taskDefinition=task_definition)
         self.taskDefArn = result["taskDefinition"]["taskDefinitionArn"]
         return result
 
@@ -56,8 +54,7 @@ class EcsClient(object):
         )
 
     def describe_tasks(self, cluster_name: str, task_arns):
-        result = self.boto.describe_tasks(
-            cluster=cluster_name, tasks=task_arns)
+        result = self.boto.describe_tasks(cluster=cluster_name, tasks=task_arns)
         self.status = result["tasks"][0]["lastStatus"]
         return result
 

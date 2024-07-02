@@ -68,8 +68,7 @@ print(
 )
 
 ecs_deploy = list(
-    filter(lambda x: x["status"] == "PRIMARY",
-           deployment["services"][0]["deployments"])
+    filter(lambda x: x["status"] == "PRIMARY", deployment["services"][0]["deployments"])
 )
 ecs_deploy_status = ecs_deploy[0]["rolloutState"]
 
@@ -99,8 +98,7 @@ while ecs_deploy_status == "IN_PROGRESS":
     # Check if containers are being stoped
     last_task = task.list_tasks(cluster_name, task.ecsDeployId)
     if len(last_task["taskArns"]) > 2:
-        last_task_info = task.describe_tasks(
-            cluster_name, last_task["taskArns"])
+        last_task_info = task.describe_tasks(cluster_name, last_task["taskArns"])
         last_task_status = last_task_info["tasks"][0]["lastStatus"]
         last_task_reason = last_task_info["tasks"][0]["stoppedReason"]
         if "reason" in last_task_info["tasks"][0]["containers"][0]:
