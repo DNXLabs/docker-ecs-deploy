@@ -25,7 +25,7 @@ class DeployTest(unittest.TestCase):
         self.assertEqual(result, expected_json)
 
     def test_create_app_spec(self):
-        result = self.deploy.create_app_spec("../templates/app-spec.tpl.json")
+        result = self.deploy.create_app_spec("../templates/app-spec.tpl.json", "arn:aws:1232:asdasdf")
         pass
 
     def test_upper(self):

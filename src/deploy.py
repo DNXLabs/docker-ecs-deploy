@@ -32,9 +32,9 @@ class Deploy(object):
         print('Task definition file: \n%s' % task_definition)
         return json.loads(task_definition)
 
-    def create_app_spec(self, file_name: str):
+    def create_app_spec(self, file_name: str, task_arn: str):
         env_vars = dict(os.environ)
-        env_vars['TASK_ARN'] = self.ecs_client.taskDefArn
+        env_vars['TASK_ARN'] = task_arn
         env_vars['CAPACITY_PROVIDER_STRATEGY'] = ''
         if capacity_provider_strategy:
             env_vars['CAPACITY_PROVIDER_STRATEGY'] = ',\"CapacityProviderStrategy\":[\'%s\']' % capacity_provider_strategy
@@ -65,7 +65,8 @@ class Deploy(object):
             exit(1)
 
         print('Step 4: Creating App Spec for CodeDeploy \n')
-        app_spec = self.create_app_spec(app_spec_file_name)
+        task_arn = self.ecs_client.taskDefArn
+        app_spec = self.create_app_spec(app_spec_file_name, task_arn)
 #
 ## ----- Create Deployment -----
 #print('Step 5: Creating Deployment \n')
