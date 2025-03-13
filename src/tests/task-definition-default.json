@@ -1,0 +1,32 @@
+{
+  "containerDefinitions": [
+    {
+      "essential": true,
+      "image": "dnxlabs/docker-ecs",
+      "command": "ls -la",
+      "cpu": 1500,
+      "memory": 3000,
+      "memoryReservation": 3000,
+      "name": "test-app",
+      "portMappings": [
+        {
+          "containerPort": 8080
+        }
+      ],
+      "environment": [],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/test-cluster/test-app",
+          "awslogs-region": "ap-southeast-2",
+          "awslogs-stream-prefix": "test-app"
+        }
+      }
+    }
+  ],
+  "family": "test-cluster-test-app",
+  "executionRoleArn": "arn:aws:iam::1234567890:role/ecs-task-test-cluster-ap-southeast-2",
+  "taskRoleArn": "arn:aws:iam::1234567890:role/ecs-task-test-cluster-ap-southeast-2"
+}

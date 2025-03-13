@@ -25,20 +25,21 @@ class DeployClient(object):
         )
         self.deploymentId = result['deploymentId']
         return result
-    
+
     def continue_deployment(self, deployment_id):
         return self.boto.continue_deployment(
             deploymentId=deployment_id,
             deploymentWaitType='READY_WAIT'
         )
-    
+
     def get_deployment(self, deployment_id):
         result = self.boto.get_deployment(deploymentId=deployment_id)
         self.status = result['deploymentInfo']['status']
         return result
-    
+
     def stop_deployment(self, deployment_id, auto_rollback=True):
         return self.boto.stop_deployment(
             deploymentId=deployment_id,
             autoRollbackEnabled=auto_rollback
         )
+

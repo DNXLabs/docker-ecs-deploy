@@ -16,24 +16,21 @@ def validate_json(json_data):
         json.loads(json_data)
         return True
     except ValueError as err:
-        print('JSON not valide: %s' % err)
+        print('JSON not valid: %s' % err)
 
 def json_template(json_template, env_vars=os.environ):
-    try:
-        json_file = open(json_template)
+    with open(json_template, 'r') as json_file:
         data = json_file.read()
-    except:
-        print('File %s not found' % json_template)
 
-    try:
-        template = Template(data).substitute(env_vars)
-    except KeyError as err:
-        print('Missing variable %s' % str(err))
-        exit(1)
+        try:
+            template = Template(data).substitute(env_vars)
+        except KeyError as err:
+            print('Missing variable %s' % str(err))
+            exit(1)
 
-    try:
-        validate_json(template)
-    except Exception as err:
-        print(err)
-        
-    return template
+        try:
+            validate_json(template)
+        except Exception as err:
+            print(err)
+
+        return template
