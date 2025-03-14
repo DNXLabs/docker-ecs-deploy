@@ -5,15 +5,6 @@ from ecs import EcsClient
 from codedeploy import DeployClient
 from utils import validate_envs, json_template
 
-cluster_name = os.getenv('CLUSTER_NAME')
-app_name = os.getenv('APP_NAME')
-aws_default_region = os.getenv('AWS_DEFAULT_REGION')
-launchtype = os.getenv('SERVICE_TYPE')
-subnets = os.getenv('SUBNETS')
-security_groups = os.getenv('SECURITY_GROUPS')
-task_def_file_name = os.getenv('TPL_FILE_NAME', 'task-definition.tpl.json')
-app_spec_file_name = os.getenv('APPSPEC_FILE_NAME', 'app-spec.tpl.json')
-capacity_provider_strategy = os.getenv('CAPACITY_PROVIDER_STRATEGY')
 
 
 class Deploy(object):
@@ -22,6 +13,15 @@ class Deploy(object):
         self.required_vars = [ 'CLUSTER_NAME', 'APP_NAME', 'AWS_DEFAULT_REGION' ]
         self.ecs_client = EcsClient()
         self.debug = True
+        self.cluster_name = os.getenv('CLUSTER_NAME')
+        self.app_name = os.getenv('APP_NAME')
+        self.aws_default_region = os.getenv('AWS_DEFAULT_REGION')
+        self.launchtype = os.getenv('SERVICE_TYPE')
+        self.subnets = os.getenv('SUBNETS')
+        self.security_groups = os.getenv('SECURITY_GROUPS')
+        self.task_def_file_name = os.getenv('TPL_FILE_NAME', 'task-definition.tpl.json')
+        self.app_spec_file_name = os.getenv('APPSPEC_FILE_NAME', 'app-spec.tpl.json')
+        self.capacity_provider_strategy = os.getenv('CAPACITY_PROVIDER_STRATEGY')
 
     def create_task_definition(self, file_name: str):
         try:
@@ -36,8 +36,8 @@ class Deploy(object):
         env_vars = dict(os.environ)
         env_vars['TASK_ARN'] = task_arn
         env_vars['CAPACITY_PROVIDER_STRATEGY'] = ''
-        if capacity_provider_strategy:
-            env_vars['CAPACITY_PROVIDER_STRATEGY'] = ',\"CapacityProviderStrategy\":[\'%s\']' % capacity_provider_strategy
+        if self.capacity_provider_strategy:
+            env_vars['CAPACITY_PROVIDER_STRATEGY'] = ',\\"CapacityProviderStrategy\\":[\\"%s\\"]' % self.capacity_provider_strategy
         try:
             app_spec_tpl = json_template(file_name, env_vars)
         except Exception as err:
@@ -53,8 +53,8 @@ class Deploy(object):
         except:
             exit(1)
 
-        print('Step 2: Replace variables inside of %s \n' % task_def_file_name)
-        task_def = self.create_task_definition(task_def_file_name)
+        print('Step 2: Replace variables inside of %s \n' % self.task_def_file_name)
+        task_def = self.create_task_definition(self.task_def_file_name)
 
         print('Step 3: Registering task definition \n')
         try:
@@ -66,8 +66,8 @@ class Deploy(object):
 
         print('Step 4: Creating App Spec for CodeDeploy \n')
         task_arn = self.ecs_client.taskDefArn
-        app_spec = self.create_app_spec(app_spec_file_name, task_arn)
-#
+        app_spec = self.create_app_spec(self.app_spec_file_name, task_arn)
+
 ## ----- Create Deployment -----
 #print('Step 5: Creating Deployment \n')
 #deploy = DeployClient()
