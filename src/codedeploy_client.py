@@ -1,9 +1,32 @@
+import os
 import boto3
+import json
+
+from utils import json_template
 
 
 class CodeDeployClient(object):
     def __init__(self):
         self.boto = boto3.client("codedeploy")
+
+    def create_app_spec(
+        self, file_name: str, task_arn: str, capacity_provider_strategy=None
+    ):
+        env_vars = dict(os.environ)
+        env_vars["TASK_ARN"] = task_arn
+        env_vars["CAPACITY_PROVIDER_STRATEGY"] = ""
+        if capacity_provider_strategy:
+            env_vars["CAPACITY_PROVIDER_STRATEGY"] = (
+                ',\\"CapacityProviderStrategy\\":[\\"%s\\"]'
+                % capacity_provider_strategy
+            )
+        try:
+            app_spec_tpl = json_template(file_name, env_vars)
+        except Exception as err:
+            print("Error: Templating app spec :", err)
+            exit(1)
+        print("App spec file content: \n%s" % app_spec_tpl)
+        return json.loads(app_spec_tpl)
 
     def list_deployments(
         self, application_name, deployment_group, statuses=["InProgress", "Ready"]
