@@ -1,0 +1,6 @@
+{
+	"revisionType": "AppSpecContent",
+	"appSpecContent": {
+		"content": "{ \"version\":1, \"Resources\": [ { \"TargetService\": { \"Type\": \"AWS::ECS::Service\", \"Properties\": { \"TaskDefinition\":\"arn:aws:1234567890:asdf\", \"LoadBalancerInfo\": { \"ContainerName\": \"test-app\", \"ContainerPort\": 8080 }  } } } ] }"
+	}
+}

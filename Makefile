@@ -43,3 +43,7 @@ ecr-scan:
 	@echo "make ecr-scan"
 	docker-compose -f docker-compose.yml run --rm ecr-scan
 	
+test:
+	@echo "Running tests"
+	python -m unittest src/*.py
+
