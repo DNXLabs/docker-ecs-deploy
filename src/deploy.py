@@ -2,10 +2,8 @@ import os
 import json
 import time
 from ecs import EcsClient
-from codedeploy import DeployClient
+from codedeploy_client import CodeDeployClient
 from utils import validate_envs, json_template
-
-
 
 class Deploy(object):
     def __init__(self):
@@ -27,7 +25,7 @@ class Deploy(object):
         try:
             task_definition = json_template(file_name)
         except Exception as err:
-            print("Error templating task definition: ", err)
+            print("Error: Templating task definition: ", err)
             exit(1)
         print('Task definition file: \n%s' % task_definition)
         return json.loads(task_definition)
@@ -41,16 +39,17 @@ class Deploy(object):
         try:
             app_spec_tpl = json_template(file_name, env_vars)
         except Exception as err:
-            print("Error templating app spec :", err)
+            print("Error: Templating app spec :", err)
             exit(1)
         print('App spec file: \n%s' % app_spec_tpl)
         return json.loads(app_spec_tpl)
 
     def run(self):
-        print('Step 1: Checking environment variables \n')
+        print('Step 1: Validating environment variables \n')
         try:
             validate_envs(self.required_vars)
-        except:
+        except Exception as err:
+            print("Error: Validating environment variables: ", err)
             exit(1)
 
         print('Step 2: Replace variables inside of %s \n' % self.task_def_file_name)
@@ -61,30 +60,27 @@ class Deploy(object):
             self.ecs_client.register_task_definition(task_def)
             print('Task definition arn: %s \n' % self.ecs_client.taskDefArn)
         except Exception as err:
-            print('Register task definition issue: %s' % err)
+            print('Error: Register task definition: ', err)
             exit(1)
 
         print('Step 4: Creating App Spec for CodeDeploy \n')
         task_arn = self.ecs_client.taskDefArn
         app_spec = self.create_app_spec(self.app_spec_file_name, task_arn)
 
-## ----- Create Deployment -----
-#print('Step 5: Creating Deployment \n')
-#deploy = DeployClient()
-#
-#application_name = '-'.join([cluster_name, app_name])
-#deployment_config_name = 'CodeDeployDefault.ECSAllAtOnce'
-#deployment_group  = application_name
-#
-#try:
-#    deploy.list_deployments(application_name, deployment_group)
-#    if len(deploy.deployments) > 0:
-#        raise Exception('Deployment in progress: https://%s.console.aws.amazon.com/codesuite/codedeploy/deployments/%s' %
-#                        (aws_default_region, deploy.deployments[0]))
-#except Exception as err:
-#    print('Error: %s' % str(err))
-#    exit(1)
-#
+        print('Step 5: Creating Deployment \n')
+        codedeploy_client = CodeDeployClient()
+        application_name = '-'.join([self.cluster_name, self.app_name])
+        deployment_config_name = 'CodeDeployDefault.ECSAllAtOnce'
+        deployment_group  = application_name
+
+        try:
+            codedeploy_client.list_deployments(application_name, deployment_group)
+            if len(codedeploy_client.deployments) > 0:
+                raise Exception('Deployment in progress: https://%s.console.aws.amazon.com/codesuite/codedeploy/deployments/%s' % (self.aws_default_region, codedeploy_client.deployments[0]))
+        except Exception as err:
+            print('Error: %s' % str(err))
+            exit(1)
+
 #try:
 #    deploy.create_deployment(
 #        application_name, deployment_config_name, deployment_group, app_spec)

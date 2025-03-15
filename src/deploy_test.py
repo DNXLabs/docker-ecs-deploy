@@ -41,8 +41,6 @@ class DeployTest(unittest.TestCase):
         expected = json.loads(expected_json)
         self.assertEqual(result, expected)
 
-    def test_upper(self):
-        self.assertEqual('foo'.upper(), 'FOO')
-
 if __name__ == '__main__':
     unittest.main()
+
