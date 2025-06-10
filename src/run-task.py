@@ -115,21 +115,26 @@ while True:
         continue
 
 print('\n======== TASK STOPPED ========')
-print('Task ID:        %s' % task.taskId)
-print('Task ARN:       %s' % task.taskArn)
-print('Service Name:   %s' % app_name)
-print('Cluster Name:   %s' % cluster_name)
-if 'startedAt' in running_task['tasks'][0]:
-    print('Started at:     %s' % running_task['tasks'][0]['startedAt'])
-print('Stopped at:     %s' % running_task['tasks'][0]['stoppedAt'])
-print('Stopped Reason: %s' % running_task['tasks'][0]['stoppedReason'])
-if 'stopCode' in running_task['tasks'][0]:
-    print('Stop Code:      %s' % running_task['tasks'][0]['stopCode'])
-if 'exitCode' in running_task['tasks'][0]['containers'][0]:
-    print('Exit code:      %s' %running_task['tasks'][0]['containers'][0]['exitCode'])
-if 'reason' in running_task['tasks'][0]['containers'][0]:
-    print('Reason:         %s' %running_task['tasks'][0]['containers'][0]['reason'])
+all_tasks = running_task['tasks']
+for task_item in all_tasks:
+    print('Task ID:        %s' % task_item['taskArn'].split('/')[-1])
+    print('Task ARN:       %s' % task_item['taskArn'])
+    print('Service Name:   %s' % app_name)
+    print('Cluster Name:   %s' % cluster_name)
+    if 'startedAt' in task_item:
+        print('Started at:     %s' % task_item['startedAt'])
+    print('Stopped at:     %s' % task_item['stoppedAt'])
+    print('Stopped Reason: %s' % task_item['stoppedReason'])
+    if 'stopCode' in task_item:
+        print('Stop Code:      %s' % task_item['stopCode'])
+    for container in task_item['containers']:
+        if 'exitCode' in container:
+            print('Exit code for container %s: %s' % (container['name'], container['exitCode']))
+            if container['exitCode'] != 0:
+                print('Container %s in task %s failed with exit code %s' % (container['name'], task_item['taskArn'], container['exitCode']))
+                exit(container['exitCode'])
+        if 'reason' in container:
+            print('Reason for container %s: %s' % (container['name'], container['reason']))
 
-# exit with task exit code
-if 'exitCode' in running_task['tasks'][0]['containers'][0]:
-    exit(running_task['tasks'][0]['containers'][0]['exitCode'])
+print('All tasks completed successfully')
+exit(0)
